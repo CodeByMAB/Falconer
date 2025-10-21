@@ -6,7 +6,7 @@ build-backend = "setuptools.build_meta"
 name = "falconer"
 version = "0.2.0"
 description = "A Bitcoin-native AI agent built to hunt for insights and earn sats"
-authors = [{name = "CodeByMAB", email = "codebymab@protonmail.com"}]
+authors = [{name = "CodeByMAB", email = "mabcode@protonmail.com"}]
 license = {text = "MIT"}
 readme = "README.md"
 requires-python = ">=3.9"
