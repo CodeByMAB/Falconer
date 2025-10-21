@@ -1,0 +1,11 @@
+{
+    "version": "1.0",
+    "budgets": { "daily_sats_cap": 20000, "weekly_sats_cap": 100000, "per_counterparty_caps": {} },
+    "actions": {
+      "allowed_categories": ["invoice.create","pay.invoice","http.get.whitelist"],
+      "allowlist_domains": ["start9-node.local","192.168.1.42"],
+      "denylist_domains": []
+    },
+    "psbt_rules": { "max_fee_sat_per_vb": 50, "no_address_reuse": true, "min_change_value_sats": 10000, "consolidate_when_feerate_below": 5 },
+    "splits": { "ops_percent": 50, "reserve_psbt_proposal_percent": 50 }
+  }  

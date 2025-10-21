@@ -1,0 +1,35 @@
+{
+  "version": "1.0",
+  "budgets": {
+    "daily_sats_cap": 100000,
+    "weekly_sats_cap": 500000,
+    "per_counterparty_caps": {}
+  },
+  "actions": {
+    "allowed_categories": [
+      "invoice.create",
+      "pay.invoice",
+      "http.get.whitelist"
+    ],
+    "allowlist_domains": [
+      "lvk6m7wpccq7u7wzb6tkrsolzslfdfile74xuks33ofczahnejaeyoqd.local",
+      "lvk6m7wpccq7u7wzb6tkrsolzslfdfile74xuks33ofczahnejaeyoqd.onion",
+      "gkpquya6z6cgpsahrapya525nh7rcwf3g55g6id2kebvjusfouvzzead.onion",
+      "umhxjttosoc3d5gjn7k2bhgb6jzkvpjtfe6gdl5uqphrct6cd3yqxyyd.local",
+      "umhxjttosoc3d5gjn7k2bhgb6jzkvpjtfe6gdl5uqphrct6cd3yqxyyd.onion",
+      "q4y2pckjdvasd5f4pzlro62elwu4jdz332jljx7gfx6uzo2tk6obpeyd.local",
+      "q4y2pckjdvasd5f4pzlro62elwu4jdz332jljx7gfx6uzo2tk6obpeyd.onion"
+    ],
+    "denylist_domains": []
+  },
+  "psbt_rules": {
+    "max_fee_sat_per_vb": 25,
+    "no_address_reuse": true,
+    "min_change_value_sats": 15000,
+    "consolidate_when_feerate_below": 3
+  },
+  "splits": {
+    "ops_percent": 40,
+    "reserve_psbt_proposal_percent": 60
+  }
+}

@@ -1,0 +1,23 @@
+[Unit]
+Description=Falconer agent
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=falconer
+WorkingDirectory=/opt/Falconer
+EnvironmentFile=/opt/Falconer/ops/systemd/falconer.env
+ExecStart=/opt/Falconer/.venv/bin/python -m falconer.cli node-health
+Restart=on-failure
+RestartSec=5
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=full
+ProtectHome=true
+ReadWritePaths=/opt/Falconer
+CapabilityBoundingSet=
+AmbientCapabilities=
+
+[Install]
+WantedBy=multi-user.target

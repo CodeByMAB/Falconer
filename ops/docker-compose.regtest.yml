@@ -1,0 +1,92 @@
+version: '3.8'
+
+services:
+  bitcoind:
+    image: ruimarinho/bitcoin-core:25.0  # Note: Using Bitcoin Core for regtest, but production uses Bitcoin Knots
+    container_name: falconer-bitcoind
+    ports:
+      - "18443:18443"  # RPC port
+      - "18444:18444"  # P2P port
+    volumes:
+      - bitcoind-data:/home/bitcoin/.bitcoin
+      - ./bitcoin.conf:/home/bitcoin/.bitcoin/bitcoin.conf:ro
+    command: >
+      bitcoind
+      -regtest=1
+      -server=1
+      -rpcbind=0.0.0.0
+      -rpcallowip=0.0.0.0/0
+      -rpcuser=bitcoin
+      -rpcpassword=bitcoin
+      -fallbackfee=0.00001
+      -txindex=1
+      -daemon=0
+    networks:
+      - falconer-network
+
+  electrs:
+    image: blockstream/electrs:latest
+    container_name: falconer-electrs
+    ports:
+      - "50001:50001"  # REST API port
+    volumes:
+      - electrs-data:/data
+    environment:
+      - ELECTRS_NETWORK=regtest
+      - ELECTRS_DAEMON_RPC_ADDR=bitcoind:18443
+      - ELECTRS_DAEMON_P2P_ADDR=bitcoind:18444
+      - ELECTRS_HTTP_ADDR=0.0.0.0:50001
+      - ELECTRS_RPC_ADDR=0.0.0.0:50002
+      - ELECTRS_LOG_FILTERS=INFO
+    depends_on:
+      - bitcoind
+    networks:
+      - falconer-network
+
+  lnbits:
+    image: lnbits/lnbits:latest
+    container_name: falconer-lnbits
+    ports:
+      - "5000:5000"
+    volumes:
+      - lnbits-data:/app/data
+    environment:
+      - LNBITS_DATA_FOLDER=/app/data
+      - LNBITS_DATABASE_URL=sqlite:///app/data/lnbits.db
+      - LNBITS_SECRET_KEY=your-secret-key-here
+      - LNBITS_SITE_TITLE=Falconer LNbits
+      - LNBITS_SITE_TAGLINE=Bitcoin Lightning Wallet
+      - LNBITS_DEFAULT_WALLET_NAME=Falconer Wallet
+    networks:
+      - falconer-network
+
+  # Optional: Bitcoin Explorer for block exploration
+  btcexp:
+    image: ghcr.io/janoside/btcexp:latest
+    container_name: falconer-btcexp
+    ports:
+      - "3000:3000"
+    environment:
+      - BTCEXP_BITCOIND_HOST=bitcoind
+      - BTCEXP_BITCOIND_PORT=18443
+      - BTCEXP_BITCOIND_USER=bitcoin
+      - BTCEXP_BITCOIND_PASS=bitcoin
+      - BTCEXP_BITCOIND_RPC_TIMEOUT=50000
+      - BTCEXP_ADDRESS_API=electrs
+      - BTCEXP_ELECTRUM_HOST=electrs
+      - BTCEXP_ELECTRUM_PORT=50001
+      - BTCEXP_ELECTRUM_TLS_ENABLED=false
+    depends_on:
+      - bitcoind
+      - electrs
+    networks:
+      - falconer-network
+
+volumes:
+  bitcoind-data:
+  electrs-data:
+  lnbits-data:
+
+networks:
+  falconer-network:
+    driver: bridge

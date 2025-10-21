@@ -1,0 +1,53 @@
+# Environment and Secrets
+.env
+*.env
+falconer.env
+.env.local
+.env.*.local
+
+# Python Artifacts
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+
+# Testing and Coverage
+.coverage
+.coverage.*
+htmlcov/
+.pytest_cache/
+.tox/
+
+# Type Checking and Linting
+.mypy_cache/
+.dmypy.json
+dmypy.json
+
+# Build and Distribution
+build/
+dist/
+*.egg-info/
+*.egg
+.eggs/
+
+# Virtual Environments
+.venv/
+venv/
+env/
+ENV/
+
+# Logs
+*.log
+logs/
+
+# IDE and Editor Files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Other
+.pre-commit-config.yaml.backup
+*.bak

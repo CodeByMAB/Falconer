@@ -1,0 +1,7 @@
+{
+    "version": "1.0",
+    "budgets": { "daily_sats_cap": 10000, "weekly_sats_cap": 50000, "per_counterparty_caps": {} },
+    "actions": { "allowed_categories": ["*"], "allowlist_domains": ["127.0.0.1"], "denylist_domains": [] },
+    "psbt_rules": { "max_fee_sat_per_vb": 250, "no_address_reuse": true, "min_change_value_sats": 5000, "consolidate_when_feerate_below": 50 },
+    "splits": { "ops_percent": 100, "reserve_psbt_proposal_percent": 0 }
+  }  
