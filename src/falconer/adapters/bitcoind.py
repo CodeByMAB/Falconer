@@ -9,6 +9,7 @@ from pydantic import BaseModel
 from ..config import Config
 from ..exceptions import BitcoinAdapterError, BitcoinRPCError
 from ..logging import get_logger
+from ..utils import retry_on_network_error
 
 logger = get_logger(__name__)
 
@@ -35,6 +36,7 @@ class BitcoinAdapter:
         self.auth = (config.bitcoind_rpc_user, config.bitcoind_rpc_pass)
         self.client = httpx.Client(base_url=self.base_url, auth=self.auth, timeout=30.0)
 
+    @retry_on_network_error(max_attempts=3, base_delay=2.0)
     def _make_rpc_call(
         self, method: str, params: List[Any] = None
     ) -> BitcoinRPCResponse:
