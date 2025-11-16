@@ -8,6 +8,7 @@ import httpx
 
 from ..exceptions import MempoolAdapterError
 from ..logging import get_logger
+from ..utils import retry_on_network_error
 
 log = get_logger(__name__)
 
@@ -58,6 +59,7 @@ class MempoolAdapter:
         # Some endpoints (e.g. /api/blocks/tip/height) return plain text
         return r.text
 
+    @retry_on_network_error(max_attempts=3, base_delay=2.0)
     async def tip_height(self) -> int:
         """
         Query /api/blocks/tip/height and return an int.

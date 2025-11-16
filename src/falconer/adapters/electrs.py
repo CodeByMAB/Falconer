@@ -8,6 +8,7 @@ from pydantic import BaseModel
 from ..config import Config
 from ..exceptions import ElectrsAdapterError
 from ..logging import get_logger
+from ..utils import retry_on_network_error
 
 logger = get_logger(__name__)
 
@@ -25,6 +26,7 @@ class ElectrsAdapter:
         self.base_url = config.electrs_url
         self.client = httpx.Client(base_url=self.base_url, timeout=30.0)
 
+    @retry_on_network_error(max_attempts=3, base_delay=2.0)
     def _make_request(self, method: str, endpoint: str, **kwargs) -> Any:
         """Make a request to Electrs API.
 
