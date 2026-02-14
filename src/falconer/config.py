@@ -41,9 +41,33 @@ class Config(BaseSettings):
     # Spending Limits (can be overridden by policy file)
     max_daily_spend_sats: int = Field(default=100000, env="MAX_DAILY_SPEND_SATS")
     max_single_tx_sats: int = Field(default=50000, env="MAX_SINGLE_TX_SATS")
-    allowed_destinations: List[str] = Field(
-        default_factory=list, env="ALLOWED_DESTINATIONS"
-    )
+    allowed_destinations: List[str] = Field(default=[], env="ALLOWED_DESTINATIONS")
+
+    # AI Configuration (vLLM, OpenAI-compatible API)
+    vllm_model: str = Field(default="llama3.1:8b", env="VLLM_MODEL")
+    vllm_base_url: str = Field(default="http://localhost:8000/v1", env="VLLM_BASE_URL")
+    ai_risk_tolerance: str = Field(default="medium", env="AI_RISK_TOLERANCE")  # low, medium, high
+    ai_confidence_threshold: float = Field(default=0.6, env="AI_CONFIDENCE_THRESHOLD")
+    ai_decision_interval_minutes: int = Field(default=5, env="AI_DECISION_INTERVAL_MINUTES")
+
+    # Funding Proposal Configuration
+    funding_proposal_enabled: bool = Field(default=False, env="FUNDING_PROPOSAL_ENABLED")
+    funding_proposal_threshold_sats: int = Field(default=50000, env="FUNDING_PROPOSAL_THRESHOLD_SATS")
+    funding_proposal_default_amount_sats: int = Field(default=500000, env="FUNDING_PROPOSAL_DEFAULT_AMOUNT_SATS")
+    funding_proposal_max_pending: int = Field(default=3, env="FUNDING_PROPOSAL_MAX_PENDING")
+    funding_proposal_expiry_hours: int = Field(default=24, env="FUNDING_PROPOSAL_EXPIRY_HOURS")
+
+    # n8n Integration Configuration
+    n8n_webhook_url: str = Field(default="", env="N8N_WEBHOOK_URL")
+    n8n_webhook_auth_token: Optional[str] = Field(default=None, env="N8N_WEBHOOK_AUTH_TOKEN")
+    n8n_webhook_secret: str = Field(default="", env="N8N_WEBHOOK_SECRET")
+    n8n_webhook_timeout_seconds: int = Field(default=30, env="N8N_WEBHOOK_TIMEOUT_SECONDS")
+
+    # Webhook Server Configuration
+    webhook_server_enabled: bool = Field(default=True, env="WEBHOOK_SERVER_ENABLED")
+    webhook_server_host: str = Field(default="0.0.0.0", env="WEBHOOK_SERVER_HOST")
+    webhook_server_port: int = Field(default=8080, env="WEBHOOK_SERVER_PORT")
+    webhook_server_reload: bool = Field(default=False, env="WEBHOOK_SERVER_RELOAD")
 
     # Wallet Configuration
     change_address: Optional[str] = Field(default=None, env="CHANGE_ADDRESS")
@@ -51,6 +75,11 @@ class Config(BaseSettings):
     # Logging Configuration
     log_level: str = Field(default="INFO", env="LOG_LEVEL")
     log_file: Optional[str] = Field(default=None, env="LOG_FILE")
+
+    # OpenClaw Integration (PoC)
+    openclaw_enabled: bool = Field(default=False, env="OPENCLAW_ENABLED")
+    openclaw_api_key: str = Field(default="", env="OPENCLAW_API_KEY")
+    openclaw_webhook_url: str = Field(default="", env="OPENCLAW_WEBHOOK_URL")
 
     @field_validator("max_single_tx_sats")
     @classmethod
@@ -73,6 +102,55 @@ class Config(BaseSettings):
         if isinstance(v, str):
             return [dest.strip() for dest in v.split(",") if dest.strip()]
         return v or []
+
+    @field_validator("funding_proposal_threshold_sats")
+    @classmethod
+    def validate_funding_threshold(cls, v):
+        """Ensure funding threshold is positive."""
+        if v <= 0:
+            raise ValueError("funding_proposal_threshold_sats must be positive")
+        return v
+
+    @field_validator("funding_proposal_default_amount_sats")
+    @classmethod
+    def validate_funding_default_amount(cls, v):
+        """Ensure default funding amount is positive."""
+        if v <= 0:
+            raise ValueError("funding_proposal_default_amount_sats must be positive")
+        return v
+
+    @field_validator("funding_proposal_max_pending")
+    @classmethod
+    def validate_max_pending(cls, v):
+        """Ensure max pending proposals is positive."""
+        if v <= 0:
+            raise ValueError("funding_proposal_max_pending must be positive")
+        return v
+
+    @field_validator("funding_proposal_expiry_hours")
+    @classmethod
+    def validate_expiry_hours(cls, v):
+        """Ensure expiry hours is positive."""
+        if v <= 0:
+            raise ValueError("funding_proposal_expiry_hours must be positive")
+        return v
+
+    @field_validator("n8n_webhook_url")
+    @classmethod
+    def validate_n8n_webhook_url(cls, v, info):
+        """Validate n8n webhook URL when funding proposals are enabled."""
+        if info.data and info.data.get("funding_proposal_enabled", False):
+            if not v or not v.startswith(("http://", "https://")):
+                raise ValueError("n8n_webhook_url must be a valid HTTP/HTTPS URL when funding_proposal_enabled is True")
+        return v
+
+    @field_validator("webhook_server_port")
+    @classmethod
+    def validate_webhook_port(cls, v):
+        """Ensure webhook server port is valid."""
+        if not (1 <= v <= 65535):
+            raise ValueError("webhook_server_port must be between 1 and 65535")
+        return v
 
     model_config = {
         "env_file": ".env",

@@ -1,6 +1,7 @@
 # Environment and Secrets
 .env
 *.env
+.env.openclaw
 falconer.env
 .env.local
 .env.*.local
@@ -39,6 +40,7 @@ ENV/
 # Logs
 *.log
 logs/
+webhook.log
 
 # IDE and Editor Files
 .vscode/
@@ -47,6 +49,13 @@ logs/
 *.swo
 *~
 .DS_Store
+
+# Data files
+data/funding_proposals.json
+data/funding_proposals.json.bak
+
+# Process files
+*.pid
 
 # Other
 .pre-commit-config.yaml.backup

@@ -11,6 +11,13 @@ from .policy.schema import DailySpend, TransactionRequest
 
 logger = get_logger(__name__)
 
+# Import FundingProposal here to avoid circular imports
+try:
+    from .funding.schema import FundingProposal
+except ImportError:
+    # Handle case where funding module is not available
+    FundingProposal = None
+
 
 class PersistenceManager:
     """Manages persistent storage for Falconer data."""
@@ -27,6 +34,7 @@ class PersistenceManager:
         self.daily_spends_file = self.data_dir / "daily_spends.json"
         self.transaction_history_file = self.data_dir / "transaction_history.json"
         self.policy_violations_file = self.data_dir / "policy_violations.json"
+        self.funding_proposals_file = self.data_dir / "funding_proposals.json"
 
     def save_daily_spend(self, daily_spend: DailySpend) -> None:
         """Save daily spend record.
@@ -307,3 +315,143 @@ class PersistenceManager:
 
         except Exception as e:
             logger.error("Failed to cleanup old data", error=str(e))
+
+    def save_funding_proposal(self, proposal: "FundingProposal") -> None:
+        """Save or update a funding proposal.
+        
+        Args:
+            proposal: Funding proposal to save
+        """
+        if FundingProposal is None:
+            logger.error("FundingProposal not available - funding module not imported")
+            return
+            
+        try:
+            # Load existing proposals
+            proposals = self._load_funding_proposals()
+            
+            # Update or add the proposal
+            proposals[proposal.proposal_id] = proposal.model_dump()
+            
+            # Save back to file
+            self._save_json(self.funding_proposals_file, proposals)
+            
+            logger.info(
+                "Funding proposal saved",
+                proposal_id=proposal.proposal_id,
+                status=proposal.status,
+                requested_amount_sats=proposal.requested_amount_sats,
+            )
+            
+        except Exception as e:
+            logger.error(
+                "Failed to save funding proposal",
+                proposal_id=proposal.proposal_id,
+                error=str(e),
+            )
+            raise
+
+    def load_funding_proposal(self, proposal_id: str) -> Optional["FundingProposal"]:
+        """Load a specific funding proposal by ID.
+        
+        Args:
+            proposal_id: ID of the proposal to load
+            
+        Returns:
+            FundingProposal object or None if not found
+        """
+        if FundingProposal is None:
+            logger.error("FundingProposal not available - funding module not imported")
+            return None
+            
+        try:
+            proposals = self._load_funding_proposals()
+            proposal_data = proposals.get(proposal_id)
+            
+            if proposal_data:
+                return FundingProposal(**proposal_data)
+            return None
+            
+        except Exception as e:
+            logger.error(
+                "Failed to load funding proposal",
+                proposal_id=proposal_id,
+                error=str(e),
+            )
+            return None
+
+    def load_funding_proposals(self, status: Optional[str] = None, limit: int = 100) -> List["FundingProposal"]:
+        """Load funding proposals, optionally filtered by status.
+        
+        Args:
+            status: Optional status filter (pending, approved, rejected, executed, expired)
+            limit: Maximum number of proposals to return
+            
+        Returns:
+            List of FundingProposal objects
+        """
+        if FundingProposal is None:
+            logger.error("FundingProposal not available - funding module not imported")
+            return []
+            
+        try:
+            proposals = self._load_funding_proposals()
+            proposal_objects = []
+            
+            for proposal_data in proposals.values():
+                proposal = FundingProposal(**proposal_data)
+                
+                # Apply status filter if specified
+                if status is None or proposal.status == status:
+                    proposal_objects.append(proposal)
+            
+            # Sort by created_at descending
+            proposal_objects.sort(key=lambda p: p.created_at, reverse=True)
+            
+            # Apply limit
+            return proposal_objects[:limit]
+            
+        except Exception as e:
+            logger.error("Failed to load funding proposals", error=str(e))
+            return []
+
+    def delete_funding_proposal(self, proposal_id: str) -> bool:
+        """Delete a funding proposal by ID.
+        
+        Args:
+            proposal_id: ID of the proposal to delete
+            
+        Returns:
+            True if deleted, False if not found
+        """
+        try:
+            proposals = self._load_funding_proposals()
+            
+            if proposal_id in proposals:
+                del proposals[proposal_id]
+                self._save_json(self.funding_proposals_file, proposals)
+                
+                logger.info("Funding proposal deleted", proposal_id=proposal_id)
+                return True
+            
+            return False
+            
+        except Exception as e:
+            logger.error(
+                "Failed to delete funding proposal",
+                proposal_id=proposal_id,
+                error=str(e),
+            )
+            return False
+
+    def _load_funding_proposals(self) -> Dict[str, Dict]:
+        """Private helper to load proposals dict from file.
+        
+        Returns:
+            Dictionary of proposal data keyed by proposal_id
+        """
+        try:
+            return self._load_json(self.funding_proposals_file)
+        except Exception as e:
+            logger.warning("Failed to load funding proposals file", error=str(e))
+            return {}
