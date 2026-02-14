@@ -1,6 +1,6 @@
 """Falconer - A Bitcoin-native AI agent built to hunt for insights and earn sats."""
 
-__version__ = "0.1.0"
+__version__ = "0.2.0"
 __author__ = "CodeByMAB"
 __email__ = "mabcode@protonmail.com"
 

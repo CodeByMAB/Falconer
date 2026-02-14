@@ -28,7 +28,7 @@ Proof-of-concept for integrating [OpenClaw](https://github.com/openclaw/openclaw
 ## What’s Included
 
 - **OpenClaw** (TypeScript, official): Web UI (3000), WebSocket (3001), Telegram bot, vLLM/OpenAI-compatible LLM, calls Falconer API.
-- **Falconer API**: Test endpoints only (`/api/health`, `/api/test/fee-brief`, `/api/test/echo`). No real Bitcoin operations.
+- **Falconer API**: Test endpoints only (`/api/health`, `/api/test/fee-brief`, `/api/test/echo`). No real Bitcoin operations. Uses a dedicated `Dockerfile.api` for optimized container startup (dependencies pre-built).
 
 ## Docs
 
