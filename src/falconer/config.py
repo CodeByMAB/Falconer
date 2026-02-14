@@ -69,14 +69,99 @@ class Config(BaseSettings):
     webhook_server_port: int = Field(default=8080, env="WEBHOOK_SERVER_PORT")
     webhook_server_reload: bool = Field(default=False, env="WEBHOOK_SERVER_RELOAD")
 
-    # Wallet Configuration
-    change_address: Optional[str] = Field(default=None, env="CHANGE_ADDRESS")
+    # n8n Integration Configuration
+    n8n_webhook_url: Optional[str] = Field(default=None, env="N8N_WEBHOOK_URL")
+    n8n_webhook_secret: Optional[str] = Field(default=None, env="N8N_WEBHOOK_SECRET")
 
     # Logging Configuration
     log_level: str = Field(default="INFO", env="LOG_LEVEL")
     log_file: Optional[str] = Field(default=None, env="LOG_FILE")
 
-<<<<<<< HEAD
+    # OpenClaw Integration (PoC)
+=======
+    # Funding Proposal Configuration
+    funding_proposal_enabled: bool = Field(default=False, env="FUNDING_PROPOSAL_ENABLED")
+    funding_proposal_threshold_sats: int = Field(default=50000, env="FUNDING_PROPOSAL_THRESHOLD_SATS")
+    funding_proposal_max_pending: int = Field(default=3, env="FUNDING_PROPOSAL_MAX_PENDING")
+    funding_proposal_default_amount_sats: int = Field(default=100000, env="FUNDING_PROPOSAL_DEFAULT_AMOUNT_SATS")
+    funding_proposal_expiry_hours: int = Field(default=24, env="FUNDING_PROPOSAL_EXPIRY_HOURS")
+
+    # n8n Integration Configuration
+    n8n_webhook_url: Optional[str] = Field(default=None, env="N8N_WEBHOOK_URL")
+    n8n_webhook_secret: Optional[str] = Field(default=None, env="N8N_WEBHOOK_SECRET")
+=======
+    # Wallet Configuration
+    change_address: Optional[str] = Field(default=None, env="CHANGE_ADDRESS")
+
+    # Funding Proposal Configuration
+    funding_proposal_enabled: bool = Field(default=False, env="FUNDING_PROPOSAL_ENABLED")
+    funding_proposal_threshold_sats: int = Field(default=50000, env="FUNDING_PROPOSAL_THRESHOLD_SATS")
+    funding_proposal_max_pending: int = Field(default=3, env="FUNDING_PROPOSAL_MAX_PENDING")
+    funding_proposal_default_amount_sats: int = Field(default=100000, env="FUNDING_PROPOSAL_DEFAULT_AMOUNT_SATS")
+    funding_proposal_expiry_hours: int = Field(default=24, env="FUNDING_PROPOSAL_EXPIRY_HOURS")
+
+    # n8n Integration Configuration
+    n8n_webhook_url: Optional[str] = Field(default=None, env="N8N_WEBHOOK_URL")
+    n8n_webhook_secret: Optional[str] = Field(default=None, env="N8N_WEBHOOK_SECRET")
+
+    # Logging Configuration
+    log_level: str = Field(default="INFO", env="LOG_LEVEL")
+    log_file: Optional[str] = Field(default=None, env="LOG_FILE")
+
+    # OpenClaw Integration (PoC)
+    openclaw_enabled: bool = Field(default=False, env="OPENCLAW_ENABLED")
+    openclaw_api_key: str = Field(default="", env="OPENCLAW_API_KEY")
+    openclaw_webhook_url: str = Field(default="", env="OPENCLAW_WEBHOOK_URL")
+=======
+    # n8n Integration Configuration
+    n8n_webhook_url: Optional[str] = Field(default=None, env="N8N_WEBHOOK_URL")
+    n8n_webhook_secret: Optional[str] = Field(default=None, env="N8N_WEBHOOK_SECRET")
+
+    # Logging Configuration
+    log_level: str = Field(default="INFO", env="LOG_LEVEL")
+    log_file: Optional[str] = Field(default=None, env="LOG_FILE")
+
+    # OpenClaw Integration (PoC)
+=======
+    # Funding Proposal Configuration
+    funding_proposal_enabled: bool = Field(default=False, env="FUNDING_PROPOSAL_ENABLED")
+    funding_proposal_threshold_sats: int = Field(default=50000, env="FUNDING_PROPOSAL_THRESHOLD_SATS")
+    funding_proposal_max_pending: int = Field(default=3, env="FUNDING_PROPOSAL_MAX_PENDING")
+    funding_proposal_default_amount_sats: int = Field(default=100000, env="FUNDING_PROPOSAL_DEFAULT_AMOUNT_SATS")
+    funding_proposal_expiry_hours: int = Field(default=24, env="FUNDING_PROPOSAL_EXPIRY_HOURS")
+
+    # n8n Integration Configuration
+    n8n_webhook_url: Optional[str] = Field(default=None, env="N8N_WEBHOOK_URL")
+    n8n_webhook_secret: Optional[str] = Field(default=None, env="N8N_WEBHOOK_SECRET")
+
+    # Logging Configuration
+    log_level: str = Field(default="INFO", env="LOG_LEVEL")
+    log_file: Optional[str] = Field(default=None, env="LOG_FILE")
+
+    # OpenClaw Integration (PoC)
+    openclaw_enabled: bool = Field(default=False, env="OPENCLAW_ENABLED")
+    openclaw_api_key: str = Field(default="", env="OPENCLAW_API_KEY")
+    openclaw_webhook_url: str = Field(default="", env="OPENCLAW_WEBHOOK_URL")
+=======
+    # Ollama AI Configuration
+=======
+    # n8n Integration Configuration
+    n8n_webhook_url: Optional[str] = Field(default=None, env="N8N_WEBHOOK_URL")
+    n8n_webhook_secret: Optional[str] = Field(default=None, env="N8N_WEBHOOK_SECRET")
+
+    # Logging Configuration
+    log_level: str = Field(default="INFO", env="LOG_LEVEL")
+    log_file: Optional[str] = Field(default=None, env="LOG_FILE")
+
+    # OpenClaw Integration (PoC)
+    openclaw_enabled: bool = Field(default=False, env="OPENCLAW_ENABLED")
+    openclaw_api_key: str = Field(default="", env="OPENCLAW_API_KEY")
+    openclaw_webhook_url: str = Field(default="", env="OPENCLAW_WEBHOOK_URL")
+=======
+    # Logging Configuration
+    log_level: str = Field(default="INFO", env="LOG_LEVEL")
+    log_file: Optional[str] = Field(default=None, env="LOG_FILE")
+
     # OpenClaw Integration (PoC)
     openclaw_enabled: bool = Field(default=False, env="OPENCLAW_ENABLED")
     openclaw_api_key: str = Field(default="", env="OPENCLAW_API_KEY")

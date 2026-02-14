@@ -1,0 +1,5 @@
+# OpenClaw Skills Requirements
+# Dependencies for Bitcoin Market Analyzer skill
+
+requests>=2.31.0
+python-dotenv>=1.0.0
