@@ -1,11 +1,11 @@
-"""AI Agent for autonomous Bitcoin earning decisions using Ollama."""
+"""AI Agent for autonomous Bitcoin earning decisions using vLLM."""
 
 import asyncio
 import json
 from datetime import datetime, timedelta
 from typing import Any, Dict, List, Optional, Tuple
 
-import ollama
+from openai import AsyncOpenAI
 from pydantic import BaseModel, Field
 
 from ..config import Config
@@ -41,17 +41,17 @@ class AIAgentState(BaseModel):
 
 
 class AIAgent:
-    """AI Agent that makes autonomous decisions to earn Bitcoin using Ollama."""
-    
+    """AI Agent that makes autonomous decisions to earn Bitcoin using vLLM."""
+
     def __init__(self, config: Config):
         """Initialize the AI agent.
-        
+
         Args:
             config: Falconer configuration
         """
         self.config = config
-        self.ollama_model = getattr(config, 'ollama_model', 'llama3.1:8b')
-        self.ollama_host = getattr(config, 'ollama_host', 'http://localhost:11434')
+        self.vllm_model = getattr(config, "vllm_model", "llama3.1:8b")
+        self.vllm_base_url = getattr(config, "vllm_base_url", "http://localhost:8000/v1")
         
         # Initialize components
         self.decision_engine = DecisionEngine(config)
@@ -76,7 +76,11 @@ class AIAgent:
         # Decision history for learning
         self.decision_history: List[Dict[str, Any]] = []
         
-        logger.info("AI Agent initialized", model=self.ollama_model, host=self.ollama_host)
+        logger.info(
+            "AI Agent initialized",
+            model=self.vllm_model,
+            base_url=self.vllm_base_url,
+        )
     
     async def start_autonomous_mode(self) -> None:
         """Start the autonomous earning mode."""
@@ -161,16 +165,16 @@ class AIAgent:
             logger.error("Failed to update agent state", error=str(e))
     
     async def _make_ai_decision(self, market_data: Dict[str, Any]) -> Optional[Dict[str, Any]]:
-        """Use Ollama to make an AI decision about earning opportunities."""
+        """Use vLLM to make an AI decision about earning opportunities."""
         try:
             # Prepare context for the AI
             context = self._prepare_decision_context(market_data)
-            
-            # Create prompt for Ollama
+
+            # Create prompt for vLLM
             prompt = self._create_decision_prompt(context)
-            
-            # Get AI decision from Ollama
-            response = await self._query_ollama(prompt)
+
+            # Get AI decision from vLLM
+            response = await self._query_vllm(prompt)
             
             # Parse and validate the decision
             decision = self._parse_ai_decision(response)
@@ -205,7 +209,7 @@ class AIAgent:
         }
     
     def _create_decision_prompt(self, context: Dict[str, Any]) -> str:
-        """Create a prompt for Ollama to make earning decisions."""
+        """Create a prompt for vLLM to make earning decisions."""
         return f"""
 You are Falconer, a Bitcoin-native AI agent designed to autonomously earn Bitcoin through micro-services and intelligent market analysis.
 
@@ -246,28 +250,27 @@ Respond with a JSON object containing:
 If you decide to wait, set action to "wait" and explain why.
 """
     
-    async def _query_ollama(self, prompt: str) -> str:
-        """Query Ollama with the decision prompt."""
+    async def _query_vllm(self, prompt: str) -> str:
+        """Query vLLM (OpenAI-compatible API) with the decision prompt."""
         try:
-            # Use ollama client to get response
-            response = ollama.chat(
-                model=self.ollama_model,
+            client = AsyncOpenAI(
+                base_url=self.vllm_base_url,
+                api_key="dummy",  # vLLM often does not require a key
+            )
+            response = await client.chat.completions.create(
+                model=self.vllm_model,
                 messages=[
                     {
-                        'role': 'system',
-                        'content': 'You are Falconer, a Bitcoin-native AI agent. Always respond with valid JSON.'
+                        "role": "system",
+                        "content": "You are Falconer, a Bitcoin-native AI agent. Always respond with valid JSON.",
                     },
-                    {
-                        'role': 'user',
-                        'content': prompt
-                    }
-                ]
+                    {"role": "user", "content": prompt},
+                ],
             )
-            
-            return response['message']['content']
-            
+            content = response.choices[0].message.content
+            return content or ""
         except Exception as e:
-            logger.error("Failed to query Ollama", error=str(e))
+            logger.error("Failed to query vLLM", error=str(e))
             raise
     
     def _parse_ai_decision(self, response: str) -> Optional[Dict[str, Any]]:
@@ -350,8 +353,8 @@ If you decide to wait, set action to "wait" and explain why.
         """Get current status of the AI agent."""
         return {
             "is_active": self.state.is_active,
-            "model": self.ollama_model,
-            "host": self.ollama_host,
+            "model": self.vllm_model,
+            "base_url": self.vllm_base_url,
             "state": self.state.dict(),
             "recent_decisions_count": len(self.decision_history),
             "last_decision_time": self.state.last_decision_time.isoformat() if self.state.last_decision_time else None

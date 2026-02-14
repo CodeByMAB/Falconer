@@ -13,7 +13,7 @@ Falconer v0.2.0 represents a major milestone in autonomous Bitcoin earning, intr
 ## 🚀 **Major Features**
 
 ### **🤖 AI Agent System**
-- **Autonomous Decision Making**: AI-powered agent using Ollama (llama3.1:8b) for intelligent Bitcoin earning decisions
+- **Autonomous Decision Making**: AI-powered agent using vLLM (OpenAI-compatible API) for intelligent Bitcoin earning decisions
 - **Market Intelligence**: Real-time analysis of Bitcoin market conditions, fee rates, and mempool health
 - **Strategy Management**: Extensible framework for custom earning strategies with built-in examples
 - **Learning & Adaptation**: AI agent learns from historical performance to improve future decisions
@@ -42,7 +42,7 @@ Falconer v0.2.0 represents a major milestone in autonomous Bitcoin earning, intr
 
 ### **Complete Documentation Suite**
 - **Enhanced README**: Professional overview with architecture, quick start, and feature highlights
-- **AI Setup Guide**: Detailed Ollama configuration and n8n workflow examples
+- **AI Setup Guide**: Detailed vLLM configuration and n8n workflow examples
 - **API Documentation**: Complete CLI and programmatic interface reference
 - **Security Guide**: Threat models, best practices, and operational security procedures
 - **Strategy Development Guide**: Framework for creating custom earning strategies
@@ -159,7 +159,7 @@ python -m falconer.cli ai-agent --autonomous
 - Python 3.9+
 - Bitcoin Core/Knots node
 - LNbits or LND instance
-- Ollama (for AI capabilities)
+- vLLM (for AI capabilities, OpenAI-compatible API)
 - n8n (for funding proposal workflows)
 
 ## 🔄 **Migration from v0.1.0**
@@ -212,7 +212,7 @@ python -m falconer.cli ai-agent --autonomous
 
 ### **Special Thanks**
 - **Bitcoin Community**: For the inspiration and technical foundation
-- **Ollama Team**: For the excellent AI model integration
+- **vLLM Team**: For the excellent OpenAI-compatible inference server
 - **n8n Community**: For the powerful workflow automation platform
 
 ## 📞 **Support & Community**

@@ -1,0 +1,70 @@
+# OpenClaw + Falconer API PoC environment
+# Extends the falconer-network pattern from docker-compose.regtest.yml
+# Usage: docker-compose -f ops/docker-compose.poc.yml up
+
+version: '3.8'
+
+services:
+  openclaw:
+    build:
+      context: ./openclaw
+      dockerfile: Dockerfile
+    image: falconer-openclaw
+    container_name: falconer-openclaw
+    ports:
+      - "3000:3000"   # Web UI
+      - "3001:3001"   # WebSocket Gateway
+    volumes:
+      - openclaw-data:/app/data
+      - openclaw-skills:/app/skills
+    env_file:
+      - ../.env.openclaw
+    environment:
+      - NODE_ENV=development
+      - LLM_PROVIDER=openai
+      - OPENAI_BASE_URL=http://host.docker.internal:8000/v1
+      - OPENAI_MODEL=llama3.1:8b
+      - FALCONER_API_URL=http://falconer-api:8000
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    networks:
+      - falconer-network
+    health_check:
+      test: ["CMD", "wget", "-q", "--spider", "http://localhost:3000"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+
+  falconer-api:
+    image: python:3.11-slim
+    container_name: falconer-api
+    working_dir: /app
+    ports:
+      - "8000:8000"
+    volumes:
+      - ../..:/app:ro
+    environment:
+      - ENV=dev
+      - VLLM_MODEL=llama3.1:8b
+      - VLLM_BASE_URL=http://host.docker.internal:8000/v1
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    command: >
+      sh -c "pip install -q -e . && falconer api-server --host 0.0.0.0 --port 8000"
+    networks:
+      - falconer-network
+    health_check:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/api/health')"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+
+volumes:
+  openclaw-data:
+  openclaw-skills:
+
+networks:
+  falconer-network:
+    driver: bridge

@@ -22,7 +22,7 @@ Falconer operates on three fundamental principles:
 
 ### AI Components
 - **Market Analyzer**: Real-time Bitcoin market condition analysis using multiple data sources
-- **Decision Engine**: Ollama-powered AI that makes earning decisions based on market data
+- **Decision Engine**: vLLM-powered AI that makes earning decisions based on market data
 - **Strategy Manager**: Executes and manages various Bitcoin earning strategies
 - **Autonomous Agent**: Self-managing system that operates within defined parameters
 
@@ -38,7 +38,7 @@ Falconer operates on three fundamental principles:
 - Python 3.9+
 - Bitcoin Core/Knots node
 - LNbits or LND instance
-- Ollama (for AI capabilities)
+- vLLM (for AI capabilities, OpenAI-compatible API)
 
 ### Installation
 ```bash
@@ -145,8 +145,8 @@ LNBITS_URL=https://your-lnbits-instance.com
 LNBITS_API_KEY=your-api-key
 
 # AI Configuration
-OLLAMA_MODEL=llama3.1:8b
-OLLAMA_HOST=http://localhost:11434
+VLLM_MODEL=llama3.1:8b
+VLLM_BASE_URL=http://localhost:8000/v1
 FUNDING_PROPOSAL_ENABLED=true
 
 # Policy Limits

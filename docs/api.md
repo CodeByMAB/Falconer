@@ -52,7 +52,7 @@ falconer ai-agent [--autonomous] [--model MODEL] [--interval SECONDS]
 
 **Options:**
 - `--autonomous`: Run in autonomous mode (continuous cycles)
-- `--model MODEL`: Ollama model to use [default: llama3.1:8b]
+- `--model MODEL`: vLLM model to use [default: llama3.1:8b]
 - `--interval SECONDS`: Cycle interval in seconds [default: 300]
 
 **Example:**
@@ -419,9 +419,8 @@ LNBITS_WALLET_ID=your-wallet-id
 
 #### AI Configuration
 ```bash
-OLLAMA_MODEL=llama3.1:8b
-OLLAMA_HOST=http://localhost:11434
-OLLAMA_TIMEOUT=60
+VLLM_MODEL=llama3.1:8b
+VLLM_BASE_URL=http://localhost:8000/v1
 ```
 
 #### Funding Proposals Configuration
@@ -458,7 +457,7 @@ config = Config()
 # Access configuration values
 bitcoin_url = config.bitcoin_rpc_url
 lnbits_key = config.lnbits_api_key
-ollama_model = config.ollama_model
+vllm_model = config.vllm_model
 ```
 
 ## Error Handling

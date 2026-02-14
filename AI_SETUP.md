@@ -1,49 +1,44 @@
 # Falconer AI Integration Setup Guide
 
-This guide will help you set up Falconer with AI capabilities using Ollama for autonomous Bitcoin earning.
+This guide will help you set up Falconer with AI capabilities using vLLM (OpenAI-compatible API) for autonomous Bitcoin earning.
 
 ## Prerequisites
 
-### 1. Install Ollama
+### 1. Install and Run vLLM
 
-First, install Ollama on your system:
+vLLM serves an OpenAI-compatible API. Install and run it on your system:
 
-**macOS:**
+**Install vLLM:**
 ```bash
-brew install ollama
+pip install vllm
 ```
 
-**Linux:**
-```bash
-curl -fsSL https://ollama.ai/install.sh | sh
-```
-
-**Windows:**
-Download from [ollama.ai](https://ollama.ai/download)
-
-### 2. Download AI Model
-
-Download a suitable model for Bitcoin analysis:
+**Start vLLM server** (with a supported model, e.g. from Hugging Face or local path):
 
 ```bash
-# Recommended model for Bitcoin analysis (8B parameters)
-ollama pull llama3.1:8b
-
-# Alternative models (choose based on your hardware):
-ollama pull llama3.1:7b    # Smaller, faster
-ollama pull llama3.1:13b   # Larger, more capable
-ollama pull codellama:7b   # Code-focused model
+# Example: serve a model (adjust model name to your setup)
+python -m vllm.entrypoints.openai.api_server \
+  --model meta-llama/Llama-3.2-3B-Instruct \
+  --host 0.0.0.0 \
+  --port 8000
 ```
 
-### 3. Start Ollama Service
+The API will be available at `http://localhost:8000/v1` (OpenAI-compatible).
 
+**Verify it's working:**
 ```bash
-# Start Ollama service
-ollama serve
-
-# In another terminal, verify it's working
-ollama list
+curl http://localhost:8000/v1/models
 ```
+
+### 2. Model Selection
+
+Use any model compatible with vLLM. Examples:
+
+- **Small/fast**: 3B-class models (e.g. Llama-3.2-3B-Instruct)
+- **Balanced**: 7B–8B models (e.g. meta-llama/Llama-3.1-8B-Instruct)
+- **Larger**: 13B+ for higher quality (more GPU/RAM required)
+
+The model name you pass to vLLM (e.g. `meta-llama/Llama-3.1-8B-Instruct`) is what you set as `VLLM_MODEL` in Falconer.
 
 ## Falconer AI Setup
 
@@ -53,8 +48,8 @@ ollama list
 # Install Falconer with AI dependencies
 pip install -e .
 
-# Or install specific AI dependencies
-pip install ollama langchain langchain-ollama numpy pandas scikit-learn schedule
+# AI stack uses OpenAI client to talk to vLLM
+pip install openai langchain numpy pandas scikit-learn schedule
 ```
 
 ### 2. Configure Environment
@@ -62,9 +57,9 @@ pip install ollama langchain langchain-ollama numpy pandas scikit-learn schedule
 Add AI configuration to your `.env` file:
 
 ```bash
-# AI Configuration
-OLLAMA_MODEL=llama3.1:8b
-OLLAMA_HOST=http://localhost:11434
+# AI Configuration (vLLM)
+VLLM_MODEL=meta-llama/Llama-3.1-8B-Instruct
+VLLM_BASE_URL=http://localhost:8000/v1
 AI_RISK_TOLERANCE=medium
 AI_CONFIDENCE_THRESHOLD=0.6
 AI_DECISION_INTERVAL_MINUTES=5
@@ -132,10 +127,10 @@ Falconer includes several AI-driven earning strategies:
 python -m falconer.cli ai-start
 
 # With custom model
-python -m falconer.cli ai-start --model llama3.1:13b
+python -m falconer.cli ai-start --model meta-llama/Llama-3.1-8B-Instruct
 
-# With custom Ollama host
-python -m falconer.cli ai-start --host http://192.168.1.100:11434
+# With custom vLLM base URL
+python -m falconer.cli ai-start --base-url http://192.168.1.100:8000/v1
 ```
 
 ### Monitor AI Performance
@@ -225,23 +220,17 @@ AI_CONFIDENCE_THRESHOLD=0.4
 
 ### Common Issues
 
-**1. Ollama Connection Failed**
+**1. vLLM Connection Failed**
 ```bash
-# Check if Ollama is running
-ollama list
+# Check if vLLM server is running
+curl http://localhost:8000/v1/models
 
-# Restart Ollama service
-ollama serve
+# Ensure VLLM_BASE_URL in .env matches (e.g. http://localhost:8000/v1)
 ```
 
 **2. Model Not Found**
-```bash
-# List available models
-ollama list
-
-# Pull the required model
-ollama pull llama3.1:8b
-```
+- Use the exact model name vLLM is serving (see vLLM logs or `/v1/models`).
+- Set `VLLM_MODEL` to that name (e.g. `meta-llama/Llama-3.1-8B-Instruct`).
 
 **3. AI Decisions Not Executing**
 - Check policy limits in your configuration
@@ -249,27 +238,27 @@ ollama pull llama3.1:8b
 - Ensure sufficient balance for service creation
 
 **4. Low Performance**
-- Use a smaller model (7b instead of 8b)
+- Use a smaller model (3B instead of 8B)
 - Increase decision interval
 - Lower confidence threshold
 
 ### Performance Optimization
 
 **Hardware Requirements:**
-- **Minimum**: 8GB RAM, 4 CPU cores
-- **Recommended**: 16GB RAM, 8 CPU cores
-- **Optimal**: 32GB RAM, 16 CPU cores
+- **Minimum**: 8GB RAM, 4 CPU cores (small models only)
+- **Recommended**: 16GB RAM, 8 CPU cores or GPU
+- **Optimal**: 32GB RAM, 16 CPU cores or capable GPU
 
 **Model Selection:**
-- **llama3.1:7b**: Fast, good for basic decisions
-- **llama3.1:8b**: Balanced performance and capability
-- **llama3.1:13b**: Best quality, requires more resources
+- **3B class**: Fast, good for basic decisions
+- **7B–8B**: Balanced performance and capability
+- **13B+**: Best quality, requires more resources
 
 ## Security Considerations
 
 ### Local AI Processing
-- All AI processing happens locally with Ollama
-- No data sent to external services
+- All AI processing can run locally with vLLM
+- No data need be sent to external services
 - Bitcoin private keys never exposed to AI
 
 ### Policy Enforcement
@@ -321,8 +310,8 @@ For issues and questions:
 
 ## Example Workflow
 
-1. **Setup**: Install Ollama and download model
-2. **Configure**: Set up environment variables
+1. **Setup**: Install vLLM and start the API server with your model
+2. **Configure**: Set `VLLM_BASE_URL` and `VLLM_MODEL` in `.env`
 3. **Test**: Run `ai-analyze` to verify setup
 4. **Start**: Launch autonomous mode with `ai-start`
 5. **Monitor**: Use `ai-status` to track performance
@@ -374,39 +363,6 @@ WEBHOOK_SERVER_PORT=8080
 - Include headers: X-Signature (HMAC-SHA256), X-Timestamp
 - Body: `{"proposal_id": "...", "status": "approved", "approved_by": "human_name", "approval_notes": "..."}`
 - Calculate HMAC signature: `HMAC-SHA256(timestamp + body, N8N_WEBHOOK_SECRET)`
-
-**Example n8n Workflow JSON:**
-
-```json
-{
-  "nodes": [
-    {
-      "name": "Webhook",
-      "type": "n8n-nodes-base.webhook",
-      "parameters": {
-        "path": "falconer-proposal",
-        "authentication": "headerAuth",
-        "responseMode": "responseNode"
-      }
-    },
-    {
-      "name": "Format Message",
-      "type": "n8n-nodes-base.function",
-      "parameters": {
-        "functionCode": "// Format proposal for human review\nconst proposal = items[0].json;\nreturn [{\n  json: {\n    message: `🤖 Falconer Funding Request\n\nAmount: ${proposal.requested_amount_sats} sats\nCurrent Balance: ${proposal.current_balance_sats} sats\n\nJustification:\n${proposal.justification}\n\nIntended Use:\n${proposal.intended_use}\n\nExpected ROI: ${proposal.expected_roi_sats} sats\nRisk: ${proposal.risk_assessment}\nTimeframe: ${proposal.time_horizon_days} days\n\nProposal ID: ${proposal.proposal_id}`\n  }\n}];"
-      }
-    },
-    {
-      "name": "Send Email",
-      "type": "n8n-nodes-base.emailSend",
-      "parameters": {
-        "subject": "Falconer Funding Proposal",
-        "text": "={{$json.message}}"
-      }
-    }
-  ]
-}
-```
 
 ### Starting the Webhook Server
 
