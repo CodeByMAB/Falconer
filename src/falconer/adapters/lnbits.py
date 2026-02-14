@@ -8,6 +8,7 @@ from pydantic import BaseModel
 from ..config import Config
 from ..exceptions import LNbitsAdapterError
 from ..logging import get_logger
+from ..utils import retry_on_network_error
 
 logger = get_logger(__name__)
 
@@ -55,6 +56,7 @@ class LNbitsAdapter:
             timeout=30.0,
         )
 
+    @retry_on_network_error(max_attempts=3, base_delay=2.0)
     def _make_request(self, method: str, endpoint: str, **kwargs) -> Any:
         """Make a request to LNbits API.
 

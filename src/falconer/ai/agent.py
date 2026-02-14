@@ -50,8 +50,13 @@ class AIAgent:
             config: Falconer configuration
         """
         self.config = config
+<<<<<<< HEAD
         self.vllm_model = getattr(config, "vllm_model", "llama3.1:8b")
         self.vllm_base_url = getattr(config, "vllm_base_url", "http://localhost:8000/v1")
+=======
+        self.ollama_model = config.ollama_model
+        self.ollama_host = config.ollama_host
+>>>>>>> b1a116d3a98b001a8622efcbb26f8c7486c0b6b6
         
         # Initialize components
         self.decision_engine = DecisionEngine(config)
@@ -276,16 +281,39 @@ If you decide to wait, set action to "wait" and explain why.
     def _parse_ai_decision(self, response: str) -> Optional[Dict[str, Any]]:
         """Parse and validate the AI decision response."""
         try:
-            # Extract JSON from response
-            json_start = response.find('{')
-            json_end = response.rfind('}') + 1
-            
-            if json_start == -1 or json_end == 0:
-                logger.warning("No JSON found in AI response", response=response)
-                return None
-            
-            json_str = response[json_start:json_end]
-            decision = json.loads(json_str)
+            # Try to parse the entire response as JSON first
+            try:
+                decision = json.loads(response)
+                if isinstance(decision, dict):
+                    # Successfully parsed entire response as JSON
+                    pass
+                else:
+                    raise ValueError("Response is not a JSON object")
+            except (json.JSONDecodeError, ValueError):
+                # Extract JSON from response using balanced brace matching
+                json_start = response.find('{')
+                if json_start == -1:
+                    logger.warning("No JSON found in AI response", response=response)
+                    return None
+
+                # Find matching closing brace
+                brace_count = 0
+                json_end = json_start
+                for i in range(json_start, len(response)):
+                    if response[i] == '{':
+                        brace_count += 1
+                    elif response[i] == '}':
+                        brace_count -= 1
+                        if brace_count == 0:
+                            json_end = i + 1
+                            break
+
+                if brace_count != 0:
+                    logger.warning("Unbalanced braces in AI response", response=response)
+                    return None
+
+                json_str = response[json_start:json_end]
+                decision = json.loads(json_str)
             
             # Validate required fields
             required_fields = ['action', 'reasoning', 'confidence']

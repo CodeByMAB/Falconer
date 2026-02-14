@@ -113,17 +113,17 @@ class MarketAnalyzer:
     async def _gather_market_data(self) -> Dict[str, Any]:
         """Gather current market data from various sources."""
         data = {}
-        
+
         try:
-            # Get Bitcoin Core data
-            blockchain_info = self.bitcoin_adapter.get_blockchain_info()
-            mempool_info = self.bitcoin_adapter.get_mempool_info()
-            
+            # Get Bitcoin Core data (using asyncio.to_thread to avoid blocking)
+            blockchain_info = await asyncio.to_thread(self.bitcoin_adapter.get_blockchain_info)
+            mempool_info = await asyncio.to_thread(self.bitcoin_adapter.get_mempool_info)
+
             # Get fee estimates
             fee_estimates = {}
             for target in [1, 3, 6, 12, 24]:
                 try:
-                    estimate = self.bitcoin_adapter.estimate_smart_fee(target)
+                    estimate = await asyncio.to_thread(self.bitcoin_adapter.estimate_smart_fee, target)
                     if "feerate" in estimate:
                         fee_estimates[f"{target}_block"] = estimate["feerate"] * 100000  # Convert to sats/vbyte
                 except Exception as e:
