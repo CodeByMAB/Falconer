@@ -1,0 +1,1455 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+  <title>FALCONER — Dashboard</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com"/>
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
+  <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;600;700;900&family=Rajdhani:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet"/>
+  <style>
+    *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+
+    :root{
+      --bg:           #04080f;
+      --surface:      #080e1a;
+      --card:         #0a1525;
+      --card-hover:   #0d1e35;
+      --border:       rgba(245,166,35,.18);
+      --border-hi:    rgba(245,166,35,.5);
+      --gold:         #f5a623;
+      --gold-dim:     #b87818;
+      --gold-glow:    rgba(245,166,35,.35);
+      --green:        #2ecc8a;
+      --green-dim:    rgba(46,204,138,.15);
+      --blue:         #3aa5f5;
+      --blue-dim:     rgba(58,165,245,.15);
+      --red:          #e74c5a;
+      --red-dim:      rgba(231,76,90,.15);
+      --amber:        #f5a623;
+      --text:         #dde5f0;
+      --text-dim:     #6a80a0;
+      --text-muted:   #3a5070;
+      --sidebar-w:    64px;
+      --header-h:     52px;
+      --scan:         rgba(245,166,35,.025);
+    }
+
+    html,body{width:100%;height:100%;background:var(--bg);color:var(--text);
+      font-family:'Rajdhani',sans-serif;overflow:hidden}
+
+    /* ── Grid background ──────────────────────────────────────────── */
+    body::before{
+      content:'';position:fixed;inset:0;z-index:0;pointer-events:none;
+      background-image:
+        linear-gradient(rgba(245,166,35,.04) 1px,transparent 1px),
+        linear-gradient(90deg,rgba(245,166,35,.04) 1px,transparent 1px);
+      background-size:40px 40px;
+    }
+    body::after{
+      content:'';position:fixed;inset:0;z-index:0;pointer-events:none;
+      background:repeating-linear-gradient(0deg,transparent,transparent 3px,var(--scan) 3px,var(--scan) 4px);
+    }
+
+    /* ── Layout shell ─────────────────────────────────────────────── */
+    #shell{position:relative;z-index:1;display:grid;
+      grid-template-columns:var(--sidebar-w) 1fr;
+      grid-template-rows:var(--header-h) 1fr;
+      height:100vh}
+
+    /* ══════════════════════════════════════════════════════════════
+       SIDEBAR
+    ══════════════════════════════════════════════════════════════ */
+    #sidebar{
+      grid-row:1/-1;
+      background:var(--surface);
+      border-right:1px solid var(--border);
+      display:flex;flex-direction:column;align-items:center;
+      padding:0.6rem 0 1rem;
+      gap:0.2rem;
+      z-index:20;
+    }
+
+    .sb-logo{
+      width:40px;height:40px;
+      margin-bottom:0.8rem;
+      color:var(--gold);
+      filter:drop-shadow(0 0 8px var(--gold-glow));
+    }
+
+    .sb-divider{width:32px;height:1px;background:var(--border);margin:0.4rem 0}
+
+    .sb-item{
+      width:48px;height:48px;border-radius:6px;
+      display:flex;flex-direction:column;align-items:center;justify-content:center;
+      gap:2px;cursor:pointer;
+      color:var(--text-dim);
+      transition:background .2s,color .2s,box-shadow .2s;
+      border:1px solid transparent;
+      position:relative;
+    }
+    .sb-item:hover{background:rgba(245,166,35,.08);color:var(--text);border-color:var(--border)}
+    .sb-item.active{
+      background:rgba(245,166,35,.12);color:var(--gold);
+      border-color:var(--border-hi);
+      box-shadow:0 0 12px var(--gold-glow);
+    }
+    .sb-item svg{width:20px;height:20px;flex-shrink:0}
+    .sb-item span{font-size:0.55rem;letter-spacing:.06em;font-weight:600;text-transform:uppercase}
+
+    /* Active left indicator */
+    .sb-item.active::before{
+      content:'';position:absolute;left:-1px;top:50%;transform:translateY(-50%);
+      width:3px;height:60%;background:var(--gold);border-radius:0 2px 2px 0;
+      box-shadow:0 0 6px var(--gold);
+    }
+
+    .sb-spacer{flex:1}
+
+    /* ══════════════════════════════════════════════════════════════
+       HEADER
+    ══════════════════════════════════════════════════════════════ */
+    #header{
+      grid-column:2;
+      background:var(--surface);
+      border-bottom:1px solid var(--border);
+      display:flex;align-items:center;
+      padding:0 1.2rem;
+      gap:1rem;
+      z-index:10;
+    }
+
+    .hdr-title{
+      font-family:'Orbitron',monospace;font-size:.82rem;font-weight:700;
+      letter-spacing:.25em;color:var(--gold);
+      text-shadow:0 0 12px var(--gold-glow);
+      flex:1;
+    }
+
+    .hdr-status-pills{display:flex;gap:.5rem;align-items:center}
+
+    .pill{
+      display:flex;align-items:center;gap:.3rem;
+      padding:.18rem .5rem;border-radius:2px;font-size:.68rem;
+      font-family:'Orbitron',monospace;font-weight:600;letter-spacing:.08em;
+      border:1px solid;
+    }
+    .pill.online{ color:var(--green);border-color:rgba(46,204,138,.3);background:rgba(46,204,138,.08)}
+    .pill.offline{color:var(--red); border-color:rgba(231,76,90,.3); background:rgba(231,76,90,.08)}
+    .pill.warn{   color:var(--amber);border-color:rgba(245,166,35,.3);background:rgba(245,166,35,.08)}
+    .pill.check{  color:var(--text-dim);border-color:var(--border);background:transparent}
+
+    .pill-dot{width:6px;height:6px;border-radius:50%;background:currentColor;
+      animation:pulse-dot 2s ease-in-out infinite}
+    @keyframes pulse-dot{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.5;transform:scale(.7)}}
+    .pill.offline .pill-dot{animation:none}
+
+    .hdr-clock{
+      font-family:'JetBrains Mono',monospace;font-size:.78rem;
+      color:var(--text-dim);letter-spacing:.05em;white-space:nowrap;
+    }
+
+    .hdr-btn-logout{
+      background:transparent;border:1px solid var(--border);border-radius:2px;
+      padding:.25rem .7rem;font-family:'Orbitron',monospace;font-size:.62rem;
+      letter-spacing:.15em;color:var(--text-dim);cursor:pointer;
+      transition:all .2s;
+    }
+    .hdr-btn-logout:hover{border-color:var(--red);color:var(--red);background:var(--red-dim)}
+
+    /* ══════════════════════════════════════════════════════════════
+       MAIN CONTENT
+    ══════════════════════════════════════════════════════════════ */
+    #content{
+      grid-column:2;overflow-y:auto;padding:1.2rem 1.4rem;
+      scrollbar-width:thin;scrollbar-color:var(--border) transparent;
+    }
+    #content::-webkit-scrollbar{width:4px}
+    #content::-webkit-scrollbar-track{background:transparent}
+    #content::-webkit-scrollbar-thumb{background:var(--border);border-radius:2px}
+
+    /* ── Section visibility ─────────────────────────────────────── */
+    .section{display:none}
+    .section.active{display:block;animation:sec-in .3s ease both}
+    @keyframes sec-in{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}
+
+    /* ══════════════════════════════════════════════════════════════
+       SHARED COMPONENTS
+    ══════════════════════════════════════════════════════════════ */
+
+    /* Section header */
+    .sec-head{display:flex;align-items:center;gap:.8rem;margin-bottom:1.2rem}
+    .sec-head h2{font-family:'Orbitron',monospace;font-size:.9rem;font-weight:700;
+      letter-spacing:.25em;color:var(--gold)}
+    .sec-head-line{flex:1;height:1px;background:linear-gradient(90deg,var(--border-hi),transparent)}
+    .sec-badge{font-family:'JetBrains Mono',monospace;font-size:.65rem;padding:.1rem .4rem;
+      border:1px solid var(--border);border-radius:2px;color:var(--text-dim)}
+
+    /* Cards grid */
+    .cards-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:1rem;margin-bottom:1.2rem}
+
+    /* Individual card */
+    .card{
+      background:var(--card);border:1px solid var(--border);border-radius:3px;
+      padding:1rem 1.1rem;position:relative;overflow:hidden;
+      transition:border-color .2s,background .2s;
+    }
+    .card:hover{border-color:var(--border-hi);background:var(--card-hover)}
+    .card::before{
+      content:'';position:absolute;top:0;left:0;right:0;height:2px;
+      background:linear-gradient(90deg,transparent,var(--gold),transparent);
+      opacity:.4;
+    }
+
+    .card-label{font-size:.65rem;letter-spacing:.2em;color:var(--text-dim);
+      text-transform:uppercase;font-weight:600;margin-bottom:.45rem}
+    .card-value{font-family:'Orbitron',monospace;font-size:1.45rem;font-weight:700;
+      color:var(--text);line-height:1.1}
+    .card-sub{font-size:.72rem;color:var(--text-dim);margin-top:.3rem}
+    .card-icon{position:absolute;top:.85rem;right:.85rem;opacity:.15;
+      width:28px;height:28px;color:var(--gold)}
+
+    /* Status dot on card */
+    .card-status{display:inline-flex;align-items:center;gap:.3rem;
+      font-size:.68rem;font-weight:600;text-transform:uppercase;letter-spacing:.1em}
+    .card-status.online{color:var(--green)}
+    .card-status.offline{color:var(--red)}
+    .card-status.warn{color:var(--amber)}
+    .card-status .dot{width:6px;height:6px;border-radius:50%;background:currentColor}
+
+    /* Data row */
+    .data-row{display:flex;align-items:center;justify-content:space-between;
+      padding:.5rem 0;border-bottom:1px solid rgba(245,166,35,.06)}
+    .data-row:last-child{border-bottom:none}
+    .data-row .key{font-size:.75rem;color:var(--text-dim);letter-spacing:.05em}
+    .data-row .val{font-family:'JetBrains Mono',monospace;font-size:.8rem;color:var(--text)}
+    .data-row .val.gold{color:var(--gold)}
+    .data-row .val.green{color:var(--green)}
+    .data-row .val.red{color:var(--red)}
+
+    /* Info panel */
+    .info-panel{background:var(--card);border:1px solid var(--border);border-radius:3px;padding:1rem 1.2rem}
+
+    /* Wide card spanning 2 cols */
+    .span2{grid-column:span 2}
+    @media(max-width:680px){.span2{grid-column:span 1}}
+
+    /* Button styles */
+    .btn{
+      display:inline-flex;align-items:center;gap:.4rem;
+      padding:.45rem 1rem;border-radius:2px;font-family:'Orbitron',monospace;
+      font-size:.65rem;letter-spacing:.15em;font-weight:700;
+      cursor:pointer;border:1px solid;transition:all .2s;text-decoration:none;
+    }
+    .btn-gold{color:var(--gold);border-color:var(--gold);background:transparent}
+    .btn-gold:hover{background:var(--gold);color:var(--bg);box-shadow:0 0 16px var(--gold-glow)}
+    .btn-green{color:var(--green);border-color:rgba(46,204,138,.4);background:transparent}
+    .btn-green:hover{background:var(--green);color:var(--bg);box-shadow:0 0 12px rgba(46,204,138,.4)}
+    .btn-red{color:var(--red);border-color:rgba(231,76,90,.4);background:transparent}
+    .btn-red:hover{background:var(--red);color:#fff;box-shadow:0 0 12px rgba(231,76,90,.4)}
+    .btn-ghost{color:var(--text-dim);border-color:var(--border);background:transparent}
+    .btn-ghost:hover{border-color:var(--text);color:var(--text)}
+    .btn:disabled{opacity:.4;pointer-events:none}
+
+    .btn-row{display:flex;gap:.6rem;flex-wrap:wrap;margin:.8rem 0}
+
+    /* Fee bars */
+    .fee-bars{display:flex;flex-direction:column;gap:.5rem;margin:.5rem 0}
+    .fee-bar-item{display:flex;align-items:center;gap:.6rem}
+    .fee-bar-label{font-size:.72rem;color:var(--text-dim);width:70px;flex-shrink:0}
+    .fee-bar-track{flex:1;height:6px;background:rgba(255,255,255,.05);border-radius:3px;overflow:hidden}
+    .fee-bar-fill{height:100%;border-radius:3px;transition:width .8s cubic-bezier(.22,1,.36,1)}
+    .fee-bar-val{font-family:'JetBrains Mono',monospace;font-size:.72rem;color:var(--text);width:50px;text-align:right}
+
+    /* ══════════════════════════════════════════════════════════════
+       TABLE
+    ══════════════════════════════════════════════════════════════ */
+    .tbl-wrap{overflow-x:auto;border-radius:3px;border:1px solid var(--border)}
+    table{width:100%;border-collapse:collapse;font-size:.8rem}
+    thead tr{background:rgba(245,166,35,.06)}
+    th{
+      padding:.55rem 1rem;font-family:'Orbitron',monospace;font-size:.62rem;
+      letter-spacing:.15em;color:var(--text-dim);text-transform:uppercase;
+      border-bottom:1px solid var(--border);text-align:left;white-space:nowrap;
+    }
+    td{padding:.6rem 1rem;border-bottom:1px solid rgba(245,166,35,.05);
+      vertical-align:middle;white-space:nowrap}
+    tbody tr:hover{background:rgba(245,166,35,.04)}
+    tbody tr:last-child td{border-bottom:none}
+    .badge{display:inline-block;padding:.1rem .4rem;border-radius:2px;font-size:.65rem;
+      font-family:'Orbitron',monospace;letter-spacing:.06em;font-weight:700}
+    .badge-green{color:var(--green);background:var(--green-dim);border:1px solid rgba(46,204,138,.2)}
+    .badge-amber{color:var(--amber);background:rgba(245,166,35,.1);border:1px solid rgba(245,166,35,.2)}
+    .badge-red{color:var(--red);background:var(--red-dim);border:1px solid rgba(231,76,90,.2)}
+    .badge-blue{color:var(--blue);background:var(--blue-dim);border:1px solid rgba(58,165,245,.2)}
+
+    /* ══════════════════════════════════════════════════════════════
+       TERMINAL LOG
+    ══════════════════════════════════════════════════════════════ */
+    .terminal{
+      background:#020408;border:1px solid var(--border);border-radius:3px;
+      padding:.8rem 1rem;font-family:'JetBrains Mono',monospace;font-size:.75rem;
+      line-height:1.7;color:var(--text-dim);height:340px;overflow-y:auto;
+      scrollbar-width:thin;scrollbar-color:var(--border) transparent;
+    }
+    .terminal::-webkit-scrollbar{width:3px}
+    .terminal::-webkit-scrollbar-thumb{background:var(--border)}
+    .log-ts{color:var(--text-muted)}
+    .log-info{color:var(--blue)}
+    .log-warn{color:var(--amber)}
+    .log-error{color:var(--red)}
+    .log-ok{color:var(--green)}
+    .log-gold{color:var(--gold)}
+
+    /* ══════════════════════════════════════════════════════════════
+       CONFIG FORM
+    ══════════════════════════════════════════════════════════════ */
+    .config-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:1rem}
+    .cfg-group{background:var(--card);border:1px solid var(--border);border-radius:3px;padding:1rem}
+    .cfg-group-title{font-family:'Orbitron',monospace;font-size:.65rem;letter-spacing:.2em;
+      color:var(--gold);margin-bottom:.8rem;padding-bottom:.5rem;
+      border-bottom:1px solid var(--border)}
+    .cfg-field{margin-bottom:.75rem}
+    .cfg-field label{display:block;font-size:.68rem;letter-spacing:.12em;color:var(--text-dim);
+      text-transform:uppercase;margin-bottom:.3rem}
+    .cfg-field input,.cfg-field select{
+      width:100%;background:rgba(4,8,15,.7);border:1px solid var(--border);border-radius:2px;
+      padding:.45rem .7rem;font-family:'JetBrains Mono',monospace;font-size:.78rem;
+      color:var(--text);outline:none;transition:border-color .2s,box-shadow .2s;
+    }
+    .cfg-field input:focus,.cfg-field select:focus{
+      border-color:var(--gold);box-shadow:0 0 0 2px var(--gold-glow)}
+    .cfg-field select option{background:var(--surface);color:var(--text)}
+    .cfg-field input[readonly]{opacity:.5;cursor:not-allowed}
+
+    /* ══════════════════════════════════════════════════════════════
+       AI AGENT SECTION
+    ══════════════════════════════════════════════════════════════ */
+    .agent-status-card{
+      background:var(--card);border:1px solid var(--border);border-radius:3px;
+      padding:1.2rem;display:flex;align-items:center;gap:1.2rem;margin-bottom:1.2rem;
+    }
+    .agent-indicator{
+      width:52px;height:52px;border-radius:50%;
+      border:2px solid var(--border);display:flex;align-items:center;justify-content:center;
+      flex-shrink:0;font-size:1.4rem;
+      transition:all .4s;
+    }
+    .agent-indicator.running{
+      border-color:var(--green);
+      box-shadow:0 0 20px rgba(46,204,138,.4),inset 0 0 10px rgba(46,204,138,.1);
+      animation:agent-spin 6s linear infinite;
+    }
+    .agent-indicator.idle{border-color:var(--text-muted)}
+    @keyframes agent-spin{from{transform:rotate(0deg)}to{transform:rotate(360deg)}}
+    .agent-info{flex:1}
+    .agent-state-label{font-family:'Orbitron',monospace;font-size:.9rem;font-weight:700;color:var(--text);margin-bottom:.2rem}
+    .agent-state-sub{font-size:.78rem;color:var(--text-dim)}
+
+    .strategy-list{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:.7rem;margin:.8rem 0}
+    .strategy-item{
+      background:var(--card);border:1px solid var(--border);border-radius:3px;
+      padding:.8rem 1rem;cursor:pointer;
+      transition:border-color .2s,background .2s;
+    }
+    .strategy-item:hover{border-color:var(--border-hi);background:var(--card-hover)}
+    .strategy-item.selected{border-color:var(--gold);background:rgba(245,166,35,.06)}
+    .strategy-name{font-family:'Orbitron',monospace;font-size:.7rem;font-weight:700;
+      letter-spacing:.1em;color:var(--text);margin-bottom:.25rem}
+    .strategy-desc{font-size:.72rem;color:var(--text-dim)}
+
+    /* ══════════════════════════════════════════════════════════════
+       TOAST NOTIFICATIONS
+    ══════════════════════════════════════════════════════════════ */
+    #toast-container{
+      position:fixed;bottom:1.5rem;right:1.5rem;z-index:1000;
+      display:flex;flex-direction:column;gap:.5rem;pointer-events:none;
+    }
+    .toast{
+      background:var(--card);border:1px solid var(--border);border-radius:3px;
+      padding:.6rem 1rem;font-size:.78rem;color:var(--text);
+      max-width:320px;pointer-events:auto;
+      animation:toast-in .3s ease both;
+      display:flex;align-items:center;gap:.5rem;
+    }
+    .toast.success{border-color:rgba(46,204,138,.4);color:var(--green)}
+    .toast.error{border-color:rgba(231,76,90,.4);color:var(--red)}
+    .toast.info{border-color:rgba(58,165,245,.4);color:var(--blue)}
+    @keyframes toast-in{from{opacity:0;transform:translateX(20px)}to{opacity:1;transform:translateX(0)}}
+
+    /* ── Misc ───────────────────────────────────────────────────── */
+    .mt1{margin-top:.8rem}.mt2{margin-top:1.2rem}.mb1{margin-bottom:.8rem}
+    .grid2{display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:1rem}
+    .text-gold{color:var(--gold)}.text-green{color:var(--green)}.text-red{color:var(--red)}
+    .text-dim{color:var(--text-dim)}
+    .mono{font-family:'JetBrains Mono',monospace}
+    hr.divider{border:none;border-top:1px solid var(--border);margin:1rem 0}
+    .empty-state{text-align:center;padding:2rem;color:var(--text-dim);font-size:.85rem}
+    .empty-state .big{font-size:2.5rem;margin-bottom:.5rem;opacity:.3}
+
+    /* Scrollbar for the whole page */
+    *{scrollbar-width:thin;scrollbar-color:var(--border) transparent}
+  </style>
+</head>
+<body>
+
+<div id="shell">
+
+  <!-- ════════════════════════════════════ SIDEBAR ═══════════════════ -->
+  <nav id="sidebar">
+    <!-- Falcon logo -->
+    <svg class="sb-logo" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 240 280" fill="currentColor">
+      <path d="M120 18 C115 26 108 40 104 58 C100 76 99 96 100 116 C101 132 103 144 106 154 C109 162 113 167 120 169 C127 167 131 162 134 154 C137 144 139 132 140 116 C141 96 140 76 136 58 C132 40 125 26 120 18 Z"/>
+      <path d="M105 78 C91 70 72 59 52 46 C34 34 18 25 6 19 C18 31 35 45 54 60 C69 73 87 82 102 89 Z"/>
+      <path d="M135 78 C149 70 168 59 188 46 C206 34 222 25 234 19 C222 31 205 45 186 60 C171 73 153 82 138 89 Z"/>
+      <ellipse cx="120" cy="13" rx="12" ry="14"/>
+      <path d="M115 23 Q120 31 125 23 Q125 28 120 33 Q115 28 115 23 Z"/>
+      <path d="M108 163 C105 175 104 187 106 198 C108 206 113 212 120 214 C127 212 132 206 134 198 C136 187 135 175 132 163 Z"/>
+    </svg>
+
+    <div class="sb-divider"></div>
+
+    <!-- Nav items -->
+    <div class="sb-item active" data-section="overview" title="Overview">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+        <rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/>
+        <rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/>
+      </svg>
+      <span>View</span>
+    </div>
+
+    <div class="sb-item" data-section="agent" title="AI Agent">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+        <circle cx="12" cy="12" r="3"/><path d="M12 2v3m0 14v3M2 12h3m14 0h3"/>
+        <path d="M4.93 4.93l2.12 2.12m9.9 9.9 2.12 2.12M4.93 19.07l2.12-2.12m9.9-9.9 2.12-2.12"/>
+      </svg>
+      <span>Agent</span>
+    </div>
+
+    <div class="sb-item" data-section="proposals" title="Proposals">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+        <path d="M9 12h6m-3-3v6"/><rect x="3" y="3" width="18" height="18" rx="2"/>
+        <path d="M7 7h2m0 0h2m-2 0v2m0-2V5"/>
+      </svg>
+      <span>Props</span>
+    </div>
+
+    <div class="sb-item" data-section="config" title="Configuration">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+        <path d="M10.3 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v6"/>
+        <path d="M8 7h8M8 11h5m-1 9.4 2.5-2.5L20 21l.5-2.5-2.5-2.5L15 18l-1.5 1.4z"/>
+      </svg>
+      <span>Config</span>
+    </div>
+
+    <div class="sb-item" data-section="logs" title="System Logs">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+        <path d="M4 6h16M4 10h16M4 14h10M4 18h6"/>
+      </svg>
+      <span>Logs</span>
+    </div>
+
+    <div class="sb-spacer"></div>
+
+    <!-- Logout -->
+    <div class="sb-item" id="sb-logout" title="Log Out" style="color:var(--text-muted)">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+        <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/>
+      </svg>
+      <span>Exit</span>
+    </div>
+  </nav>
+
+  <!-- ════════════════════════════════════ HEADER ════════════════════ -->
+  <header id="header">
+    <div class="hdr-title" id="hdr-title">OVERVIEW</div>
+
+    <div class="hdr-status-pills">
+      <div class="pill check" id="pill-btc">
+        <span class="pill-dot"></span>BTC
+      </div>
+      <div class="pill check" id="pill-ln">
+        <span class="pill-dot"></span>LN
+      </div>
+      <div class="pill check" id="pill-ai">
+        <span class="pill-dot"></span>AI
+      </div>
+    </div>
+
+    <div class="hdr-clock" id="hdr-clock">--:--:--</div>
+
+    <form method="post" action="/dashboard/logout" style="margin:0">
+      <button class="hdr-btn-logout" type="submit">&#9658; LOGOUT</button>
+    </form>
+  </header>
+
+  <!-- ════════════════════════════════════ CONTENT ══════════════════ -->
+  <main id="content">
+
+    <!-- ╔══════════════════════════════════════════════════════════╗
+         ║  OVERVIEW                                               ║
+         ╚══════════════════════════════════════════════════════════╝ -->
+    <section class="section active" id="sec-overview">
+
+      <div class="sec-head">
+        <h2>SYSTEM OVERVIEW</h2>
+        <span class="sec-badge" id="last-refresh">REFRESHING…</span>
+        <div class="sec-head-line"></div>
+        <button class="btn btn-ghost" onclick="refreshHealth()" style="flex-shrink:0">&#8635; REFRESH</button>
+      </div>
+
+      <!-- Status cards -->
+      <div class="cards-grid" id="status-cards">
+        <div class="card" id="card-btc">
+          <svg class="card-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+            <path d="M11.767 19.089c4.924.868 6.14-6.025 1.216-6.894m-1.216 6.894L10.5 21m1.267-1.911-1.591-9.116m0 0L8.769 21m1.408-10.911c4.924.868 6.14-6.025 1.216-6.894M10.177 10.089l-.59-3.378M9.587 6.711 8.769 2M8.769 2l1.408 10.089"/>
+          </svg>
+          <div class="card-label">Bitcoin Node</div>
+          <div class="card-value" id="cv-btc-height">—</div>
+          <div class="card-sub" id="cv-btc-chain">Connecting…</div>
+          <div class="mt1"><span class="card-status check" id="cs-btc"><span class="dot"></span> Checking</span></div>
+        </div>
+
+        <div class="card" id="card-elec">
+          <svg class="card-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+            <path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/>
+          </svg>
+          <div class="card-label">Electrs</div>
+          <div class="card-value" id="cv-elec-tip">—</div>
+          <div class="card-sub">Block explorer</div>
+          <div class="mt1"><span class="card-status check" id="cs-elec"><span class="dot"></span> Checking</span></div>
+        </div>
+
+        <div class="card" id="card-ln">
+          <svg class="card-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+            <path d="M18.364 5.636a9 9 0 1 1-12.728 12.728A9 9 0 0 1 18.364 5.636z"/>
+            <path d="m9 12 2 2 4-4"/>
+          </svg>
+          <div class="card-label">LNbits</div>
+          <div class="card-value" id="cv-ln-bal">—</div>
+          <div class="card-sub">sats balance</div>
+          <div class="mt1"><span class="card-status check" id="cs-ln"><span class="dot"></span> Checking</span></div>
+        </div>
+
+        <div class="card" id="card-mempool">
+          <svg class="card-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+            <rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 7V5a2 2 0 0 0-4 0v2m-4 5h8"/>
+          </svg>
+          <div class="card-label">Mempool</div>
+          <div class="card-value" id="cv-mempool">—</div>
+          <div class="card-sub">sat/vB fastest</div>
+          <div class="mt1"><span class="card-status check" id="cs-mempool"><span class="dot"></span> Checking</span></div>
+        </div>
+      </div>
+
+      <!-- Fee rates + network stats row -->
+      <div class="grid2">
+        <div class="info-panel">
+          <div class="cfg-group-title">&#9656; FEE RATES (sat/vB)</div>
+          <div class="fee-bars" id="fee-bars">
+            <div class="fee-bar-item">
+              <span class="fee-bar-label">Fastest</span>
+              <div class="fee-bar-track"><div class="fee-bar-fill" id="fb-fast" style="width:0%;background:var(--red)"></div></div>
+              <span class="fee-bar-val" id="fv-fast">—</span>
+            </div>
+            <div class="fee-bar-item">
+              <span class="fee-bar-label">30 min</span>
+              <div class="fee-bar-track"><div class="fee-bar-fill" id="fb-half" style="width:0%;background:var(--amber)"></div></div>
+              <span class="fee-bar-val" id="fv-half">—</span>
+            </div>
+            <div class="fee-bar-item">
+              <span class="fee-bar-label">1 hour</span>
+              <div class="fee-bar-track"><div class="fee-bar-fill" id="fb-hour" style="width:0%;background:var(--green)"></div></div>
+              <span class="fee-bar-val" id="fv-hour">—</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="info-panel">
+          <div class="cfg-group-title">&#9656; NETWORK STATS</div>
+          <div class="data-row">
+            <span class="key">Chain</span>
+            <span class="val gold" id="nstat-chain">—</span>
+          </div>
+          <div class="data-row">
+            <span class="key">Block height</span>
+            <span class="val" id="nstat-height">—</span>
+          </div>
+          <div class="data-row">
+            <span class="key">Synced</span>
+            <span class="val" id="nstat-synced">—</span>
+          </div>
+          <div class="data-row">
+            <span class="key">Difficulty</span>
+            <span class="val" id="nstat-diff">—</span>
+          </div>
+          <div class="data-row">
+            <span class="key">API</span>
+            <span class="val green">ONLINE</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Quick actions -->
+      <div class="mt2">
+        <div class="sec-head" style="margin-bottom:.8rem">
+          <h2>QUICK ACTIONS</h2>
+          <div class="sec-head-line"></div>
+        </div>
+        <div class="btn-row">
+          <button class="btn btn-gold" onclick="navigate('agent')">&#9658; AI AGENT CONTROL</button>
+          <button class="btn btn-ghost" onclick="navigate('proposals')">&#9654; VIEW PROPOSALS</button>
+          <button class="btn btn-ghost" onclick="navigate('logs')">&#9654; SYSTEM LOGS</button>
+          <button class="btn btn-ghost" onclick="navigate('config')">&#9654; CONFIGURATION</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- ╔══════════════════════════════════════════════════════════╗
+         ║  AI AGENT                                               ║
+         ╚══════════════════════════════════════════════════════════╝ -->
+    <section class="section" id="sec-agent">
+
+      <div class="sec-head">
+        <h2>AI AGENT</h2>
+        <div class="sec-head-line"></div>
+      </div>
+
+      <!-- Agent status card -->
+      <div class="agent-status-card">
+        <div class="agent-indicator idle" id="agent-indicator">&#129413;</div>
+        <div class="agent-info">
+          <div class="agent-state-label" id="agent-state-label">IDLE</div>
+          <div class="agent-state-sub" id="agent-state-sub">Agent is currently not running. Start to begin autonomous operation.</div>
+        </div>
+        <div class="btn-row" style="margin:0;flex-shrink:0">
+          <button class="btn btn-green" id="btn-agent-start" onclick="agentStart()">&#9654; START</button>
+          <button class="btn btn-red"   id="btn-agent-stop"  onclick="agentStop()" disabled>&#9646;&#9646; STOP</button>
+        </div>
+      </div>
+
+      <!-- Strategies -->
+      <div class="sec-head" style="margin-bottom:.8rem">
+        <h2>EARNING STRATEGIES</h2>
+        <div class="sec-head-line"></div>
+      </div>
+
+      <div class="strategy-list">
+        <div class="strategy-item selected" data-strat="fee_arb">
+          <div class="strategy-name">FEE ARBITRAGE</div>
+          <div class="strategy-desc">Detect and exploit fee rate inefficiencies across the mempool.</div>
+        </div>
+        <div class="strategy-item" data-strat="lightning_rebal">
+          <div class="strategy-name">LIGHTNING REBALANCE</div>
+          <div class="strategy-desc">Optimize Lightning channel liquidity for routing fee revenue.</div>
+        </div>
+        <div class="strategy-item" data-strat="psbt_batch">
+          <div class="strategy-name">PSBT BATCHING</div>
+          <div class="strategy-desc">Batch multiple PSBT proposals to minimize on-chain fees.</div>
+        </div>
+        <div class="strategy-item" data-strat="market_watch">
+          <div class="strategy-name">MARKET WATCH</div>
+          <div class="strategy-desc">Monitor network activity and generate intelligence reports.</div>
+        </div>
+      </div>
+
+      <div class="btn-row">
+        <button class="btn btn-gold" onclick="runAnalysis()">&#9658; RUN ANALYSIS</button>
+        <button class="btn btn-ghost" onclick="loadFeeBrief()">&#9654; FEE BRIEF</button>
+      </div>
+
+      <!-- Analysis output -->
+      <div class="mt1">
+        <div class="cfg-group-title" style="font-family:'Orbitron',monospace;font-size:.65rem;letter-spacing:.2em;color:var(--gold);margin-bottom:.5rem">&#9656; ANALYSIS OUTPUT</div>
+        <div class="terminal" id="agent-log">
+<span class="log-ts">[system] </span><span class="log-info">Falconer AI Agent ready. Select a strategy and run analysis.</span>
+<span class="log-ts">[system] </span><span class="log-gold">&#129413; Awaiting operator command…</span>
+        </div>
+      </div>
+    </section>
+
+    <!-- ╔══════════════════════════════════════════════════════════╗
+         ║  PROPOSALS                                              ║
+         ╚══════════════════════════════════════════════════════════╝ -->
+    <section class="section" id="sec-proposals">
+
+      <div class="sec-head">
+        <h2>FUNDING PROPOSALS</h2>
+        <span class="sec-badge" id="proposals-count">0</span>
+        <div class="sec-head-line"></div>
+        <button class="btn btn-ghost" onclick="loadProposals()" style="flex-shrink:0">&#8635; REFRESH</button>
+      </div>
+
+      <div id="proposals-content">
+        <div class="empty-state">
+          <div class="big">&#128203;</div>
+          Loading proposals…
+        </div>
+      </div>
+    </section>
+
+    <!-- ╔══════════════════════════════════════════════════════════╗
+         ║  CONFIGURATION                                          ║
+         ╚══════════════════════════════════════════════════════════╝ -->
+    <section class="section" id="sec-config">
+
+      <div class="sec-head">
+        <h2>CONFIGURATION</h2>
+        <div class="sec-head-line"></div>
+        <button class="btn btn-ghost" onclick="loadConfigEdit()" style="flex-shrink:0">&#8635; RELOAD</button>
+      </div>
+
+      <!-- Save feedback banner -->
+      <div id="cfg-save-banner" style="display:none;align-items:center;gap:.5rem;
+        padding:.5rem .9rem;border-radius:2px;font-size:.78rem;margin-bottom:1rem;border:1px solid"></div>
+
+      <!-- Secret-field hint -->
+      <div style="font-size:.72rem;color:var(--text-muted);margin-bottom:1rem;line-height:1.5">
+        &#9632; Editing writes directly to <span class="mono" style="color:var(--text-dim)">.env</span>.
+        Password / key fields are blank — leave blank to keep the current value, type a new value to change it.
+        Changes take effect after restarting the server.
+      </div>
+
+      <div class="config-grid">
+
+        <!-- Bitcoin Node -->
+        <div class="cfg-group">
+          <div class="cfg-group-title">&#9656; BITCOIN NODE (RPC)</div>
+          <div class="cfg-field">
+            <label>Scheme</label>
+            <select id="ecfg-btc-scheme">
+              <option value="http">http</option>
+              <option value="https">https</option>
+            </select>
+          </div>
+          <div class="cfg-field">
+            <label>Host / IP</label>
+            <input type="text" id="ecfg-btc-host" placeholder="127.0.0.1 or hostname"/>
+          </div>
+          <div class="cfg-field">
+            <label>RPC Port</label>
+            <input type="number" id="ecfg-btc-port" placeholder="8332"/>
+          </div>
+          <div class="cfg-field">
+            <label>RPC Username</label>
+            <input type="text" id="ecfg-btc-user" placeholder="bitcoin"/>
+          </div>
+          <div class="cfg-field">
+            <label>RPC Password <span style="color:var(--text-muted)">(blank = keep current)</span></label>
+            <div style="position:relative">
+              <input type="password" id="ecfg-btc-pass" placeholder="leave blank to keep"
+                style="padding-right:2.2rem"/>
+              <button onclick="togglePw('ecfg-btc-pass',this)" style="position:absolute;right:.4rem;top:50%;
+                transform:translateY(-50%);background:none;border:none;color:var(--text-dim);
+                cursor:pointer;font-size:.85rem;padding:.1rem .2rem">&#128065;</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Electrs -->
+        <div class="cfg-group">
+          <div class="cfg-group-title">&#9656; ELECTRS</div>
+          <div class="cfg-field">
+            <label>Scheme</label>
+            <select id="ecfg-elec-scheme">
+              <option value="http">http</option>
+              <option value="https">https</option>
+            </select>
+          </div>
+          <div class="cfg-field">
+            <label>Host / IP / .onion</label>
+            <input type="text" id="ecfg-elec-host" placeholder="127.0.0.1 or .onion"/>
+          </div>
+          <div class="cfg-field">
+            <label>Port</label>
+            <input type="number" id="ecfg-elec-port" placeholder="3002"/>
+          </div>
+          <div class="cfg-field">
+            <label>Use Tor (SOCKS5)</label>
+            <select id="ecfg-elec-tor">
+              <option value="false">No</option>
+              <option value="true">Yes — route via Tor</option>
+            </select>
+          </div>
+          <div class="cfg-field">
+            <label>Tor SOCKS5 Proxy</label>
+            <input type="text" id="ecfg-tor-proxy" placeholder="socks5://127.0.0.1:9050"/>
+          </div>
+        </div>
+
+        <!-- LNbits -->
+        <div class="cfg-group">
+          <div class="cfg-group-title">&#9656; LNBITS</div>
+          <div class="cfg-field">
+            <label>Scheme</label>
+            <select id="ecfg-ln-scheme">
+              <option value="http">http</option>
+              <option value="https">https</option>
+            </select>
+          </div>
+          <div class="cfg-field">
+            <label>Host / IP</label>
+            <input type="text" id="ecfg-ln-host" placeholder="127.0.0.1"/>
+          </div>
+          <div class="cfg-field">
+            <label>Port</label>
+            <input type="number" id="ecfg-ln-port" placeholder="5000"/>
+          </div>
+          <div class="cfg-field">
+            <label>Wallet ID</label>
+            <input type="text" id="ecfg-ln-wallet" placeholder="wallet id"/>
+          </div>
+          <div class="cfg-field">
+            <label>API Key <span style="color:var(--text-muted)">(blank = keep current)</span></label>
+            <div style="position:relative">
+              <input type="password" id="ecfg-ln-apikey" placeholder="leave blank to keep"
+                style="padding-right:2.2rem"/>
+              <button onclick="togglePw('ecfg-ln-apikey',this)" style="position:absolute;right:.4rem;top:50%;
+                transform:translateY(-50%);background:none;border:none;color:var(--text-dim);
+                cursor:pointer;font-size:.85rem;padding:.1rem .2rem">&#128065;</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- vLLM / AI -->
+        <div class="cfg-group">
+          <div class="cfg-group-title">&#9656; AI MODEL (vLLM)</div>
+          <div class="cfg-field">
+            <label>Base URL</label>
+            <input type="text" id="ecfg-vllm-url" placeholder="http://localhost:8000/v1"/>
+          </div>
+          <div class="cfg-field">
+            <label>Model Name</label>
+            <input type="text" id="ecfg-vllm-model" placeholder="llama3.1:8b"/>
+          </div>
+          <div class="cfg-field">
+            <label>API Key <span style="color:var(--text-muted)">(blank = keep current)</span></label>
+            <div style="position:relative">
+              <input type="password" id="ecfg-vllm-key" placeholder="leave blank to keep"
+                style="padding-right:2.2rem"/>
+              <button onclick="togglePw('ecfg-vllm-key',this)" style="position:absolute;right:.4rem;top:50%;
+                transform:translateY(-50%);background:none;border:none;color:var(--text-dim);
+                cursor:pointer;font-size:.85rem;padding:.1rem .2rem">&#128065;</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- n8n -->
+        <div class="cfg-group">
+          <div class="cfg-group-title">&#9656; n8n WEBHOOKS</div>
+          <div class="cfg-field">
+            <label>Webhook URL</label>
+            <input type="text" id="ecfg-n8n-url" placeholder="https://…/webhook/falconer"/>
+          </div>
+          <div class="cfg-field">
+            <label>Webhook Secret <span style="color:var(--text-muted)">(blank = keep current)</span></label>
+            <div style="position:relative">
+              <input type="password" id="ecfg-n8n-secret" placeholder="leave blank to keep"
+                style="padding-right:2.2rem"/>
+              <button onclick="togglePw('ecfg-n8n-secret',this)" style="position:absolute;right:.4rem;top:50%;
+                transform:translateY(-50%);background:none;border:none;color:var(--text-dim);
+                cursor:pointer;font-size:.85rem;padding:.1rem .2rem">&#128065;</button>
+            </div>
+          </div>
+          <div class="cfg-field">
+            <label>Funding Proposals</label>
+            <select id="ecfg-funding">
+              <option value="false">Disabled</option>
+              <option value="true">Enabled</option>
+            </select>
+          </div>
+        </div>
+
+        <!-- Dashboard / Misc -->
+        <div class="cfg-group">
+          <div class="cfg-group-title">&#9656; DASHBOARD &amp; LOGGING</div>
+          <div class="cfg-field">
+            <label>Dashboard Username</label>
+            <input type="text" id="ecfg-dash-user" placeholder="admin"/>
+          </div>
+          <div class="cfg-field">
+            <label>Dashboard Password <span style="color:var(--text-muted)">(blank = keep current)</span></label>
+            <div style="position:relative">
+              <input type="password" id="ecfg-dash-pass" placeholder="leave blank to keep"
+                style="padding-right:2.2rem"/>
+              <button onclick="togglePw('ecfg-dash-pass',this)" style="position:absolute;right:.4rem;top:50%;
+                transform:translateY(-50%);background:none;border:none;color:var(--text-dim);
+                cursor:pointer;font-size:.85rem;padding:.1rem .2rem">&#128065;</button>
+            </div>
+          </div>
+          <div class="cfg-field">
+            <label>Log Level</label>
+            <select id="ecfg-log-level">
+              <option value="DEBUG">DEBUG</option>
+              <option value="INFO">INFO</option>
+              <option value="WARNING">WARNING</option>
+              <option value="ERROR">ERROR</option>
+            </select>
+          </div>
+          <div class="cfg-field">
+            <label>Version</label>
+            <input type="text" value="{{ version }}" readonly style="opacity:.5;cursor:not-allowed"/>
+          </div>
+        </div>
+
+      </div><!-- .config-grid -->
+
+      <div class="btn-row" style="margin-top:1.4rem">
+        <button class="btn btn-gold" onclick="saveConfigEdit()">&#9658; SAVE CHANGES</button>
+        <button class="btn btn-ghost" onclick="loadConfigEdit()">&#8635; DISCARD &amp; RELOAD</button>
+        <a class="btn btn-ghost" href="/dashboard/reconfigure">&#9881; SETUP WIZARD</a>
+        <a class="btn btn-ghost" href="/api/health" target="_blank">&#9654; API HEALTH</a>
+      </div>
+    </section>
+
+    <!-- ╔══════════════════════════════════════════════════════════╗
+         ║  LOGS                                                   ║
+         ╚══════════════════════════════════════════════════════════╝ -->
+    <section class="section" id="sec-logs">
+
+      <div class="sec-head">
+        <h2>SYSTEM LOGS</h2>
+        <div class="sec-head-line"></div>
+        <button class="btn btn-ghost" onclick="clearLog()" style="flex-shrink:0">&#10006; CLEAR</button>
+        <button class="btn btn-ghost" onclick="toggleAutoScroll()" id="btn-autoscroll" style="flex-shrink:0">&#8681; AUTO</button>
+      </div>
+
+      <div style="display:flex;gap:.5rem;margin-bottom:.8rem;flex-wrap:wrap">
+        <button class="btn btn-ghost log-filter active" data-level="all">ALL</button>
+        <button class="btn btn-ghost log-filter" data-level="info" style="color:var(--blue);border-color:rgba(58,165,245,.3)">INFO</button>
+        <button class="btn btn-ghost log-filter" data-level="warn" style="color:var(--amber);border-color:rgba(245,166,35,.3)">WARN</button>
+        <button class="btn btn-ghost log-filter" data-level="error" style="color:var(--red);border-color:rgba(231,76,90,.3)">ERROR</button>
+      </div>
+
+      <div class="terminal" id="system-log" style="height:420px">
+<span class="log-ts">[00:00:00] </span><span class="log-ok">&#9632; Falconer Command Interface initialized</span>
+<span class="log-ts">[00:00:00] </span><span class="log-info">Dashboard session active. Monitoring services…</span>
+      </div>
+    </section>
+
+  </main><!-- #content -->
+</div><!-- #shell -->
+
+<!-- ═══════════════════ TOAST CONTAINER ═══════════════════════════ -->
+<div id="toast-container"></div>
+
+<script>
+// ═══════════════════════════════════════════════════════════════════
+//  FALCONER DASHBOARD — JavaScript Controller
+// ═══════════════════════════════════════════════════════════════════
+
+const SECTIONS = {
+  overview:  { label: 'OVERVIEW',       el: 'sec-overview'  },
+  agent:     { label: 'AI AGENT',       el: 'sec-agent'     },
+  proposals: { label: 'PROPOSALS',      el: 'sec-proposals' },
+  config:    { label: 'CONFIGURATION',  el: 'sec-config'    },
+  logs:      { label: 'SYSTEM LOGS',    el: 'sec-logs'      },
+};
+
+let currentSection = 'overview';
+let autoScroll = true;
+let healthInterval = null;
+
+// ── Navigation ────────────────────────────────────────────────────
+function navigate(id) {
+  if (currentSection === id) return;
+
+  // Hide current
+  document.getElementById(SECTIONS[currentSection].el)?.classList.remove('active');
+  document.querySelector(`.sb-item[data-section="${currentSection}"]`)?.classList.remove('active');
+
+  currentSection = id;
+
+  // Show new
+  document.getElementById(SECTIONS[id].el)?.classList.add('active');
+  document.querySelector(`.sb-item[data-section="${id}"]`)?.classList.add('active');
+  document.getElementById('hdr-title').textContent = SECTIONS[id].label;
+
+  appendLog(`[nav] Navigated to ${SECTIONS[id].label}`, 'info');
+
+  // Lazy-load data for section
+  if (id === 'proposals') loadProposals();
+  if (id === 'config')    loadConfig();
+}
+
+document.querySelectorAll('.sb-item[data-section]').forEach(el => {
+  el.addEventListener('click', () => navigate(el.dataset.section));
+});
+
+// ── Clock ─────────────────────────────────────────────────────────
+function tick() {
+  const now = new Date();
+  const pad = n => String(n).padStart(2, '0');
+  document.getElementById('hdr-clock').textContent =
+    `${now.toLocaleDateString('en-US',{month:'short',day:'numeric'})} ${pad(now.getHours())}:${pad(now.getMinutes())}:${pad(now.getSeconds())} UTC`;
+}
+setInterval(tick, 1000);
+tick();
+
+// ── Toast notifications ───────────────────────────────────────────
+function toast(msg, type = 'info', duration = 4000) {
+  const icons = { success: '✔', error: '✖', info: '▶' };
+  const el = document.createElement('div');
+  el.className = `toast ${type}`;
+  el.innerHTML = `<span>${icons[type] || '▶'}</span><span>${msg}</span>`;
+  document.getElementById('toast-container').appendChild(el);
+  setTimeout(() => el.remove(), duration);
+}
+
+// ── System log ────────────────────────────────────────────────────
+const logEl = document.getElementById('system-log');
+let logFilter = 'all';
+
+function appendLog(msg, level = 'info') {
+  const now = new Date();
+  const ts = `${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}:${String(now.getSeconds()).padStart(2,'0')}`;
+  const classMap = { info:'log-info', warn:'log-warn', error:'log-error', ok:'log-ok', gold:'log-gold' };
+  const cls = classMap[level] || 'log-info';
+
+  const line = document.createElement('div');
+  line.dataset.level = level;
+  line.innerHTML = `<span class="log-ts">[${ts}] </span><span class="${cls}">${msg}</span>`;
+  logEl.appendChild(line);
+
+  applyLogFilter();
+  if (autoScroll) logEl.scrollTop = logEl.scrollHeight;
+}
+
+function applyLogFilter() {
+  logEl.querySelectorAll('div[data-level]').forEach(line => {
+    const show = logFilter === 'all' || line.dataset.level === logFilter;
+    line.style.display = show ? '' : 'none';
+  });
+}
+
+function clearLog() {
+  logEl.innerHTML = `<span class="log-ts">[system] </span><span class="log-info">Log cleared.</span>`;
+}
+
+function toggleAutoScroll() {
+  autoScroll = !autoScroll;
+  const btn = document.getElementById('btn-autoscroll');
+  btn.style.color = autoScroll ? 'var(--green)' : 'var(--text-dim)';
+  toast(autoScroll ? 'Auto-scroll enabled' : 'Auto-scroll disabled', 'info', 2000);
+}
+
+document.querySelectorAll('.log-filter').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.log-filter').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    logFilter = btn.dataset.level;
+    applyLogFilter();
+  });
+});
+
+// ── Health / Status ───────────────────────────────────────────────
+function setPill(id, state) {
+  const el = document.getElementById(id);
+  if (!el) return;
+  el.className = `pill ${state}`;
+}
+
+function setCardStatus(id, state, label) {
+  const el = document.getElementById(id);
+  if (!el) return;
+  el.className = `card-status ${state}`;
+  el.innerHTML = `<span class="dot"></span> ${label}`;
+}
+
+async function refreshHealth() {
+  document.getElementById('last-refresh').textContent = 'REFRESHING…';
+  appendLog('Polling service health…', 'info');
+
+  try {
+    const res = await fetch('/dashboard/api/health');
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const data = await res.json();
+    const s = data.services || {};
+
+    // Bitcoin node
+    if (s.bitcoin_node === 'online') {
+      setCardStatus('cs-btc', 'online', 'ONLINE');
+      document.getElementById('cv-btc-height').textContent = Number(s.block_height || 0).toLocaleString();
+      document.getElementById('cv-btc-chain').textContent = `Chain: ${s.chain || 'unknown'} · ${s.synced === 'true' || s.synced === true ? 'Synced ✔' : 'Syncing…'}`;
+      document.getElementById('nstat-chain').textContent = s.chain || '—';
+      document.getElementById('nstat-height').textContent = Number(s.block_height || 0).toLocaleString();
+      document.getElementById('nstat-synced').textContent = (s.synced === 'true' || s.synced === true) ? 'Yes ✔' : 'No…';
+      document.getElementById('nstat-diff').textContent = s.difficulty ? Number(s.difficulty).toExponential(3) : '—';
+      setPill('pill-btc', 'online');
+      appendLog(`Bitcoin node ONLINE — block ${s.block_height}, chain: ${s.chain}`, 'ok');
+    } else {
+      setCardStatus('cs-btc', 'offline', 'OFFLINE');
+      document.getElementById('cv-btc-height').textContent = 'N/A';
+      document.getElementById('cv-btc-chain').textContent = s.bitcoin_node_error || 'Cannot connect';
+      setPill('pill-btc', 'offline');
+      appendLog(`Bitcoin node OFFLINE: ${s.bitcoin_node_error || 'connection refused'}`, 'error');
+    }
+
+    // Electrs
+    if (s.electrs === 'online') {
+      setCardStatus('cs-elec', 'online', 'ONLINE');
+      document.getElementById('cv-elec-tip').textContent = Number(s.electrs_tip || 0).toLocaleString();
+      appendLog(`Electrs ONLINE — tip: ${s.electrs_tip}`, 'ok');
+    } else {
+      setCardStatus('cs-elec', 'offline', 'OFFLINE');
+      document.getElementById('cv-elec-tip').textContent = 'N/A';
+      appendLog(`Electrs OFFLINE: ${s.electrs_error || 'connection refused'}`, 'warn');
+    }
+
+    // LNbits
+    if (s.lnbits === 'online') {
+      setCardStatus('cs-ln', 'online', 'ONLINE');
+      const bal = Number(s.ln_balance_sats || 0).toLocaleString();
+      document.getElementById('cv-ln-bal').textContent = bal;
+      setPill('pill-ln', 'online');
+      appendLog(`LNbits ONLINE — balance: ${bal} sats`, 'ok');
+    } else {
+      setCardStatus('cs-ln', 'offline', 'OFFLINE');
+      document.getElementById('cv-ln-bal').textContent = 'N/A';
+      setPill('pill-ln', 'offline');
+      appendLog(`LNbits OFFLINE: ${s.lnbits_error || 'connection refused'}`, 'warn');
+    }
+
+    // Mempool / fee rates
+    if (s.mempool === 'online') {
+      setCardStatus('cs-mempool', 'online', 'ONLINE');
+      const fastest = Number(s.fee_fastest || 0);
+      const half    = Number(s.fee_half_hour || 0);
+      const hour    = Number(s.fee_hour || 0);
+      document.getElementById('cv-mempool').textContent = fastest;
+
+      const maxFee = Math.max(fastest, 1);
+      document.getElementById('fv-fast').textContent = `${fastest} s/vB`;
+      document.getElementById('fv-half').textContent = `${half} s/vB`;
+      document.getElementById('fv-hour').textContent = `${hour} s/vB`;
+      document.getElementById('fb-fast').style.width = `${Math.min(100, (fastest/maxFee)*100)}%`;
+      document.getElementById('fb-half').style.width = `${Math.min(100, (half/maxFee)*100)}%`;
+      document.getElementById('fb-hour').style.width = `${Math.min(100, (hour/maxFee)*100)}%`;
+      appendLog(`Mempool ONLINE — fastest: ${fastest} sat/vB, 30m: ${half}, 1h: ${hour}`, 'ok');
+    } else {
+      setCardStatus('cs-mempool', 'offline', 'OFFLINE');
+      document.getElementById('cv-mempool').textContent = 'N/A';
+      appendLog(`Mempool OFFLINE: ${s.mempool_error || 'connection refused'}`, 'warn');
+    }
+
+    // AI pill — simplified (online if API is reachable)
+    setPill('pill-ai', 'online');
+
+    const ts = new Date().toLocaleTimeString();
+    document.getElementById('last-refresh').textContent = `UPDATED ${ts}`;
+    appendLog('Health refresh complete.', 'info');
+
+  } catch (err) {
+    document.getElementById('last-refresh').textContent = 'ERROR';
+    appendLog(`Health refresh failed: ${err.message}`, 'error');
+    toast(`Connection error: ${err.message}`, 'error');
+  }
+}
+
+// ── Proposals ─────────────────────────────────────────────────────
+async function loadProposals() {
+  document.getElementById('proposals-content').innerHTML =
+    `<div class="empty-state"><div class="big">&#128203;</div>Loading proposals…</div>`;
+
+  try {
+    const res  = await fetch('/dashboard/api/proposals');
+    const data = await res.json();
+    const props = data.proposals || [];
+
+    document.getElementById('proposals-count').textContent = props.length;
+
+    if (!props.length) {
+      document.getElementById('proposals-content').innerHTML =
+        `<div class="empty-state"><div class="big">&#128203;</div>No funding proposals found.</div>`;
+      appendLog('Proposals loaded: none found.', 'info');
+      return;
+    }
+
+    const statusBadge = s => {
+      const map = { pending: 'badge-amber', approved: 'badge-green', rejected: 'badge-red', expired: 'badge-blue' };
+      return `<span class="badge ${map[s] || 'badge-blue'}">${s.toUpperCase()}</span>`;
+    };
+
+    const rows = props.map(p => `
+      <tr>
+        <td class="mono" style="color:var(--text-dim);font-size:.7rem">${(p.proposal_id || p.id || '—').slice(0,12)}…</td>
+        <td>${statusBadge(p.status || 'pending')}</td>
+        <td class="mono gold">${p.amount_sats ? Number(p.amount_sats).toLocaleString() + ' sats' : '—'}</td>
+        <td style="color:var(--text-dim)">${p.reason || p.description || '—'}</td>
+        <td style="color:var(--text-muted);font-size:.72rem">${p.created_at ? p.created_at.slice(0,16).replace('T',' ') : '—'}</td>
+        <td>
+          <div style="display:flex;gap:.3rem">
+            <button class="btn btn-green" style="padding:.2rem .5rem;font-size:.58rem" onclick="handleProposal('${p.proposal_id || p.id}','approve')">&#10003;</button>
+            <button class="btn btn-red"   style="padding:.2rem .5rem;font-size:.58rem" onclick="handleProposal('${p.proposal_id || p.id}','reject')">&#10005;</button>
+          </div>
+        </td>
+      </tr>`).join('');
+
+    document.getElementById('proposals-content').innerHTML = `
+      <div class="tbl-wrap">
+        <table>
+          <thead><tr>
+            <th>ID</th><th>STATUS</th><th>AMOUNT</th><th>REASON</th><th>CREATED</th><th>ACTION</th>
+          </tr></thead>
+          <tbody>${rows}</tbody>
+        </table>
+      </div>`;
+
+    appendLog(`Proposals loaded: ${props.length} record(s).`, 'info');
+
+  } catch (err) {
+    document.getElementById('proposals-content').innerHTML =
+      `<div class="empty-state"><div class="big">&#10060;</div>Error: ${err.message}</div>`;
+    appendLog(`Proposals load error: ${err.message}`, 'error');
+  }
+}
+
+async function handleProposal(id, action) {
+  toast(`Proposal ${action} for ${id.slice(0,10)}… — use CLI for final approval`, 'info');
+  appendLog(`Proposal ${action} requested for ID: ${id}`, 'warn');
+}
+
+// ── Configuration ─────────────────────────────────────────────────
+// ── Config (legacy stub kept so other callers don't break) ───────
+async function loadConfig() { await loadConfigEdit(); }
+
+// ── Editable Config ───────────────────────────────────────────────
+function togglePw(id, btn) {
+  const el = document.getElementById(id);
+  if (!el) return;
+  const show = el.type === 'password';
+  el.type = show ? 'text' : 'password';
+  btn.textContent = show ? '🙈' : '👁';
+}
+
+function _setVal(id, val) {
+  const el = document.getElementById(id);
+  if (!el) return;
+  if (el.tagName === 'SELECT') {
+    // try to select the matching option
+    const opt = [...el.options].find(o => o.value === String(val));
+    if (opt) el.value = String(val);
+  } else {
+    el.value = val != null ? String(val) : '';
+  }
+}
+
+async function loadConfigEdit() {
+  try {
+    const res  = await fetch('/dashboard/api/config/editable');
+    const data = await res.json();
+    _setVal('ecfg-btc-scheme',  data.bitcoind_scheme);
+    _setVal('ecfg-btc-host',    data.bitcoind_host);
+    _setVal('ecfg-btc-port',    data.bitcoind_port);
+    _setVal('ecfg-btc-user',    data.bitcoind_user);
+    _setVal('ecfg-elec-scheme', data.electrs_scheme);
+    _setVal('ecfg-elec-host',   data.electrs_host);
+    _setVal('ecfg-elec-port',   data.electrs_port);
+    _setVal('ecfg-elec-tor',    data.electrs_use_tor);
+    _setVal('ecfg-tor-proxy',   data.tor_socks_proxy);
+    _setVal('ecfg-ln-scheme',   data.lnbits_scheme);
+    _setVal('ecfg-ln-host',     data.lnbits_host);
+    _setVal('ecfg-ln-port',     data.lnbits_port);
+    _setVal('ecfg-ln-wallet',   data.lnbits_wallet_id);
+    _setVal('ecfg-vllm-url',    data.vllm_base_url);
+    _setVal('ecfg-vllm-model',  data.vllm_model);
+    _setVal('ecfg-n8n-url',     data.n8n_webhook_url);
+    _setVal('ecfg-funding',     data.funding_proposal_enabled);
+    _setVal('ecfg-dash-user',   data.dashboard_user);
+    _setVal('ecfg-log-level',   data.log_level);
+    // secret fields always arrive empty — don't overwrite whatever user typed
+    appendLog('Configuration loaded.', 'info');
+  } catch (err) {
+    appendLog(`Config load error: ${err.message}`, 'error');
+    toast('Failed to load config', 'error');
+  }
+}
+
+async function saveConfigEdit() {
+  const banner = document.getElementById('cfg-save-banner');
+  const payload = {
+    bitcoind_scheme:  document.getElementById('ecfg-btc-scheme')?.value,
+    bitcoind_host:    document.getElementById('ecfg-btc-host')?.value,
+    bitcoind_port:    document.getElementById('ecfg-btc-port')?.value,
+    bitcoind_user:    document.getElementById('ecfg-btc-user')?.value,
+    bitcoind_pass:    document.getElementById('ecfg-btc-pass')?.value,
+    electrs_scheme:   document.getElementById('ecfg-elec-scheme')?.value,
+    electrs_host:     document.getElementById('ecfg-elec-host')?.value,
+    electrs_port:     document.getElementById('ecfg-elec-port')?.value,
+    electrs_use_tor:  document.getElementById('ecfg-elec-tor')?.value,
+    tor_socks_proxy:  document.getElementById('ecfg-tor-proxy')?.value,
+    lnbits_scheme:    document.getElementById('ecfg-ln-scheme')?.value,
+    lnbits_host:      document.getElementById('ecfg-ln-host')?.value,
+    lnbits_port:      document.getElementById('ecfg-ln-port')?.value,
+    lnbits_wallet_id: document.getElementById('ecfg-ln-wallet')?.value,
+    lnbits_api_key:   document.getElementById('ecfg-ln-apikey')?.value,
+    vllm_base_url:    document.getElementById('ecfg-vllm-url')?.value,
+    vllm_model:       document.getElementById('ecfg-vllm-model')?.value,
+    vllm_api_key:     document.getElementById('ecfg-vllm-key')?.value,
+    n8n_webhook_url:  document.getElementById('ecfg-n8n-url')?.value,
+    n8n_webhook_secret: document.getElementById('ecfg-n8n-secret')?.value,
+    funding_proposal_enabled: document.getElementById('ecfg-funding')?.value,
+    dashboard_user:   document.getElementById('ecfg-dash-user')?.value,
+    dashboard_password: document.getElementById('ecfg-dash-pass')?.value,
+    log_level:        document.getElementById('ecfg-log-level')?.value,
+  };
+
+  try {
+    const res  = await fetch('/dashboard/api/save-config', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify(payload),
+    });
+    const data = await res.json();
+    if (data.ok) {
+      banner.style.display     = 'flex';
+      banner.style.borderColor = 'rgba(39,174,96,.5)';
+      banner.style.background  = 'rgba(39,174,96,.08)';
+      banner.style.color       = '#27ae60';
+      banner.innerHTML = '&#10003; ' + data.detail + ' — restart the server to apply changes.';
+      // clear any password inputs so blank=keep behaviour stays correct
+      ['ecfg-btc-pass','ecfg-ln-apikey','ecfg-vllm-key','ecfg-n8n-secret','ecfg-dash-pass']
+        .forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; });
+      appendLog(data.detail, 'ok');
+      toast(data.detail, 'success');
+    } else {
+      throw new Error(data.detail || 'Unknown error');
+    }
+  } catch (err) {
+    banner.style.display     = 'flex';
+    banner.style.borderColor = 'rgba(231,76,90,.5)';
+    banner.style.background  = 'rgba(231,76,90,.08)';
+    banner.style.color       = '#e74c5a';
+    banner.innerHTML = '&#10008; Save failed: ' + err.message;
+    appendLog(`Config save failed: ${err.message}`, 'error');
+    toast('Save failed: ' + err.message, 'error');
+  }
+}
+
+// ── AI Agent ──────────────────────────────────────────────────────
+let agentRunning = false;
+
+function setAgentState(running) {
+  agentRunning = running;
+  const ind   = document.getElementById('agent-indicator');
+  const label = document.getElementById('agent-state-label');
+  const sub   = document.getElementById('agent-state-sub');
+  const btnS  = document.getElementById('btn-agent-start');
+  const btnX  = document.getElementById('btn-agent-stop');
+
+  if (running) {
+    ind.className = 'agent-indicator running';
+    ind.textContent = '🦅';
+    label.textContent = 'ACTIVE — HUNTING';
+    sub.textContent   = 'Agent is autonomously analyzing the Bitcoin network for opportunities.';
+    btnS.disabled = true;
+    btnX.disabled = false;
+    setPill('pill-ai', 'online');
+  } else {
+    ind.className = 'agent-indicator idle';
+    ind.textContent = '🦅';
+    label.textContent = 'IDLE';
+    sub.textContent   = 'Agent is currently not running. Start to begin autonomous operation.';
+    btnS.disabled = false;
+    btnX.disabled = true;
+  }
+}
+
+async function agentStart() {
+  appendLog('&#129413; Requesting AI agent start…', 'gold');
+  try {
+    const res  = await fetch('/dashboard/api/agent/start', { method: 'POST' });
+    const data = await res.json();
+    setAgentState(true);
+    appendLog(`Agent: ${data.message}`, 'ok');
+    toast('Agent start requested', 'success');
+  } catch (err) {
+    appendLog(`Agent start failed: ${err.message}`, 'error');
+    toast('Agent start failed', 'error');
+  }
+}
+
+async function agentStop() {
+  appendLog('Requesting AI agent stop…', 'warn');
+  try {
+    const res  = await fetch('/dashboard/api/agent/stop', { method: 'POST' });
+    const data = await res.json();
+    setAgentState(false);
+    appendLog(`Agent: ${data.message}`, 'info');
+    toast('Agent stop requested', 'info');
+  } catch (err) {
+    appendLog(`Agent stop failed: ${err.message}`, 'error');
+    toast('Agent stop failed', 'error');
+  }
+}
+
+async function runAnalysis() {
+  const agentLog = document.getElementById('agent-log');
+  agentLog.innerHTML += `\n<span class="log-ts">[analysis] </span><span class="log-gold">&#9658; Running market analysis…</span>`;
+  agentLog.scrollTop = agentLog.scrollHeight;
+
+  try {
+    const res  = await fetch('/api/bitcoin/market-analysis');
+    const data = await res.json();
+    const lines = [
+      `<span class="log-ts">[result]   </span><span class="log-ok">Fee trend: ${data.fee_trend || '—'}</span>`,
+      `<span class="log-ts">[result]   </span><span class="log-info">Mempool congestion: ${data.mempool_congestion || '—'}</span>`,
+      `<span class="log-ts">[result]   </span><span class="log-info">Network activity: ${data.network_activity || '—'}</span>`,
+      `<span class="log-ts">[result]   </span><span class="log-gold">Opportunity score: ${data.opportunity_score || '—'}</span>`,
+      `<span class="log-ts">[result]   </span><span class="log-info">Risk level: ${data.risk_level || '—'}</span>`,
+      `<span class="log-ts">[result]   </span><span class="log-ok">&#10003; ${data.recommendation || 'Analysis complete.'}</span>`,
+    ];
+    agentLog.innerHTML += '\n' + lines.join('\n');
+    agentLog.scrollTop = agentLog.scrollHeight;
+    toast('Analysis complete', 'success');
+  } catch (err) {
+    agentLog.innerHTML += `\n<span class="log-ts">[error]    </span><span class="log-error">Analysis failed: ${err.message}</span>`;
+    agentLog.scrollTop = agentLog.scrollHeight;
+    toast(`Analysis failed: ${err.message}`, 'error');
+  }
+}
+
+async function loadFeeBrief() {
+  const agentLog = document.getElementById('agent-log');
+  agentLog.innerHTML += `\n<span class="log-ts">[brief]    </span><span class="log-gold">&#9656; Generating fee brief…</span>`;
+
+  try {
+    const res  = await fetch('/dashboard/api/fee-brief');
+    const data = await res.json();
+    if (data.error) throw new Error(data.error);
+    agentLog.innerHTML += `\n<span class="log-ts">[brief]    </span><span class="log-ok">${JSON.stringify(data)}</span>`;
+    agentLog.scrollTop = agentLog.scrollHeight;
+  } catch (err) {
+    agentLog.innerHTML += `\n<span class="log-ts">[brief]    </span><span class="log-error">Fee brief error: ${err.message}</span>`;
+    agentLog.scrollTop = agentLog.scrollHeight;
+  }
+}
+
+// Strategy selection
+document.querySelectorAll('.strategy-item').forEach(el => {
+  el.addEventListener('click', () => {
+    document.querySelectorAll('.strategy-item').forEach(e => e.classList.remove('selected'));
+    el.classList.add('selected');
+    const agentLog = document.getElementById('agent-log');
+    agentLog.innerHTML += `\n<span class="log-ts">[strategy] </span><span class="log-gold">Selected: ${el.querySelector('.strategy-name').textContent}</span>`;
+    agentLog.scrollTop = agentLog.scrollHeight;
+  });
+});
+
+// Logout confirmation
+document.getElementById('sb-logout')?.addEventListener('click', () => {
+  if (confirm('Log out of Falconer Command Interface?')) {
+    document.querySelector('form[action="/dashboard/logout"]')?.submit();
+  }
+});
+
+// ── Auto-refresh every 60 seconds ─────────────────────────────────
+refreshHealth();
+healthInterval = setInterval(refreshHealth, 60_000);
+
+// ── Boot animation log lines ──────────────────────────────────────
+setTimeout(() => appendLog('🦅 Falconer v{{ version }} booted. All systems nominal.', 'gold'), 500);
+setTimeout(() => appendLog('Polling interval: 60 seconds.', 'info'), 800);
+</script>
+</body>
+</html>

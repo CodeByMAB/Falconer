@@ -1,0 +1,1541 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+  <title>FALCONER — System Setup</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com"/>
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
+  <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;600;700;900&family=Rajdhani:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet"/>
+  <style>
+    *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+    :root{
+      --bg:#04080f; --surface:#080e1a; --card:rgba(10,18,35,.92);
+      --border:rgba(245,166,35,.2); --border-hi:rgba(245,166,35,.55);
+      --gold:#f5a623; --gold-dim:#b87818; --gold-glow:rgba(245,166,35,.35);
+      --green:#2ecc8a; --blue:#3aa5f5; --red:#e74c5a;
+      --text:#dde5f0; --text-dim:#6a80a0; --text-muted:#3a5070;
+      --scan:rgba(245,166,35,.025);
+    }
+    html,body{width:100%;min-height:100%;background:var(--bg);color:var(--text);
+      font-family:'Rajdhani',sans-serif}
+    body::after{content:'';position:fixed;inset:0;z-index:0;pointer-events:none;
+      background:repeating-linear-gradient(0deg,transparent,transparent 3px,var(--scan) 3px,var(--scan) 4px)}
+
+    canvas#bg{position:fixed;inset:0;z-index:0;pointer-events:none}
+
+    /* ── Mountains ── */
+    .mountains{position:fixed;bottom:0;left:0;right:0;z-index:1;pointer-events:none;opacity:.25}
+
+    /* ── Page shell ── */
+    .page{position:relative;z-index:2;min-height:100vh;display:flex;flex-direction:column;
+      align-items:center;padding:2rem 1rem 4rem}
+
+    /* ── Header ── */
+    .setup-header{display:flex;align-items:center;gap:.9rem;margin-bottom:2rem;width:100%;max-width:680px}
+    .hdr-falcon{width:36px;height:44px;color:var(--gold);
+      filter:drop-shadow(0 0 8px var(--gold-glow));flex-shrink:0}
+    .hdr-text h1{font-family:'Orbitron',monospace;font-size:1.1rem;font-weight:900;
+      letter-spacing:.3em;color:var(--gold);text-shadow:0 0 16px var(--gold-glow)}
+    .hdr-text p{font-size:.72rem;letter-spacing:.15em;color:var(--text-dim);margin-top:.15rem}
+
+    /* ── Progress bar ── */
+    .progress-wrap{width:100%;max-width:680px;margin-bottom:1.8rem}
+    .progress-steps{display:flex;align-items:center;gap:0}
+    .step-node{display:flex;flex-direction:column;align-items:center;gap:.3rem;
+      flex:1;position:relative;cursor:pointer}
+    .step-node:not(:last-child)::after{
+      content:'';position:absolute;top:13px;left:50%;right:-50%;height:2px;
+      background:var(--border);z-index:0;transition:background .4s}
+    .step-node.done:not(:last-child)::after{background:var(--gold)}
+    .step-dot{width:26px;height:26px;border-radius:50%;border:2px solid var(--border);
+      display:flex;align-items:center;justify-content:center;z-index:1;position:relative;
+      background:var(--bg);font-family:'Orbitron',monospace;font-size:.6rem;color:var(--text-dim);
+      transition:all .3s}
+    .step-node.active .step-dot{border-color:var(--gold);color:var(--gold);
+      box-shadow:0 0 10px var(--gold-glow)}
+    .step-node.done .step-dot{border-color:var(--green);background:rgba(46,204,138,.15);color:var(--green)}
+    .step-label{font-size:.58rem;letter-spacing:.1em;color:var(--text-muted);
+      text-transform:uppercase;white-space:nowrap;transition:color .3s}
+    .step-node.active .step-label{color:var(--gold)}
+    .step-node.done  .step-label{color:var(--green)}
+
+    /* ── Cards ── */
+    .step-card{width:100%;max-width:680px;background:var(--card);
+      border:1px solid var(--border);border-radius:4px;
+      padding:2rem 2.2rem;position:relative;overflow:hidden;
+      backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);
+      box-shadow:0 8px 40px rgba(0,0,0,.5),inset 0 1px 0 rgba(245,166,35,.08);
+      display:none}
+    .step-card.active{display:block;animation:card-in .35s cubic-bezier(.22,1,.36,1)}
+    @keyframes card-in{from{opacity:0;transform:translateY(16px)}to{opacity:1;transform:translateY(0)}}
+    .card-corner{position:absolute;width:14px;height:14px}
+    .cc-tl{top:0;left:0;border-top:2px solid var(--gold);border-left:2px solid var(--gold)}
+    .cc-tr{top:0;right:0;border-top:2px solid var(--gold);border-right:2px solid var(--gold)}
+    .cc-bl{bottom:0;left:0;border-bottom:2px solid var(--gold);border-left:2px solid var(--gold)}
+    .cc-br{bottom:0;right:0;border-bottom:2px solid var(--gold);border-right:2px solid var(--gold)}
+
+    .card-title{font-family:'Orbitron',monospace;font-size:.9rem;font-weight:700;
+      letter-spacing:.2em;color:var(--gold);margin-bottom:.3rem}
+    .card-desc{font-size:.82rem;color:var(--text-dim);margin-bottom:1.4rem;line-height:1.55}
+
+    /* ── Mode toggle ── */
+    .mode-toggle{display:flex;gap:.4rem;margin-bottom:1.2rem}
+    .mode-btn{padding:.3rem .9rem;border-radius:2px;font-family:'Orbitron',monospace;
+      font-size:.62rem;letter-spacing:.12em;font-weight:700;cursor:pointer;
+      border:1px solid var(--border);background:transparent;color:var(--text-dim);
+      transition:all .2s}
+    .mode-btn.active{border-color:var(--gold);color:var(--gold);background:rgba(245,166,35,.1)}
+
+    /* ── Form fields ── */
+    .fields-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:.8rem}
+    .field{display:flex;flex-direction:column;gap:.3rem}
+    .field.full{grid-column:1/-1}
+    .field label{font-size:.68rem;letter-spacing:.15em;color:var(--text-dim);
+      text-transform:uppercase;font-weight:600}
+    .field input,.field select{
+      background:rgba(4,8,15,.7);border:1px solid var(--border);border-radius:2px;
+      padding:.5rem .75rem;font-family:'JetBrains Mono',monospace;font-size:.82rem;
+      color:var(--text);outline:none;transition:border-color .2s,box-shadow .2s;width:100%}
+    .field input:focus,.field select:focus{
+      border-color:var(--gold);box-shadow:0 0 0 2px var(--gold-glow)}
+    .field select option{background:var(--surface)}
+    .field input::placeholder{color:var(--text-muted);opacity:.7}
+    .field-hint{font-size:.68rem;color:var(--text-muted)}
+
+    /* ── Test connection ── */
+    .test-row{display:flex;align-items:center;gap:.8rem;margin-top:1.2rem;flex-wrap:wrap}
+    .btn-test{display:inline-flex;align-items:center;gap:.4rem;
+      padding:.45rem 1.1rem;border-radius:2px;font-family:'Orbitron',monospace;
+      font-size:.65rem;letter-spacing:.15em;font-weight:700;cursor:pointer;
+      border:1px solid var(--border-hi);background:transparent;color:var(--gold);
+      transition:all .2s;flex-shrink:0}
+    .btn-test:hover{background:rgba(245,166,35,.1);box-shadow:0 0 14px var(--gold-glow)}
+    .btn-test:disabled{opacity:.4;pointer-events:none}
+    .btn-test .spinner{width:12px;height:12px;border:2px solid rgba(245,166,35,.3);
+      border-top-color:var(--gold);border-radius:50%;animation:spin .7s linear infinite;display:none}
+    .btn-test.testing .spinner{display:block}
+    .btn-test.testing .label{display:none}
+    @keyframes spin{to{transform:rotate(360deg)}}
+
+    .test-result{font-size:.78rem;padding:.35rem .7rem;border-radius:2px;
+      border:1px solid var(--border);font-family:'JetBrains Mono',monospace;flex:1;min-width:0;
+      white-space:normal;overflow:hidden;word-break:break-word;
+      opacity:0;transition:opacity .2s;pointer-events:none}
+    .test-result.show{opacity:1;pointer-events:auto}
+    .test-result.testing{color:var(--text-dim);border-color:var(--border);background:transparent}
+    .test-result.ok{color:var(--green);border-color:rgba(46,204,138,.35);background:rgba(46,204,138,.07)}
+    .test-result.fail{color:var(--red);border-color:rgba(231,76,90,.35);background:rgba(231,76,90,.07)}
+
+    /* Skip link */
+    .skip-link{font-size:.72rem;color:var(--text-muted);cursor:pointer;
+      text-decoration:underline;transition:color .2s;margin-left:auto}
+    .skip-link:hover{color:var(--text-dim)}
+
+    /* ── Nav buttons ── */
+    .card-nav{display:flex;align-items:center;gap:.7rem;margin-top:1.6rem;
+      padding-top:1.2rem;border-top:1px solid var(--border)}
+    .btn{display:inline-flex;align-items:center;gap:.4rem;padding:.5rem 1.2rem;
+      border-radius:2px;font-family:'Orbitron',monospace;font-size:.65rem;
+      letter-spacing:.15em;font-weight:700;cursor:pointer;border:1px solid;
+      transition:all .2s;background:transparent;text-decoration:none}
+    .btn-primary{color:var(--gold);border-color:var(--gold)}
+    .btn-primary:hover{background:var(--gold);color:var(--bg);box-shadow:0 0 16px var(--gold-glow)}
+    .btn-ghost{color:var(--text-dim);border-color:var(--border)}
+    .btn-ghost:hover{border-color:var(--text-dim);color:var(--text)}
+    .btn-success{color:#fff;border-color:var(--green);background:rgba(46,204,138,.15)}
+    .btn-success:hover{background:var(--green);color:var(--bg);box-shadow:0 0 14px rgba(46,204,138,.4)}
+    .btn:disabled{opacity:.35;pointer-events:none}
+    .nav-spacer{flex:1}
+
+    /* ── Warning about untested steps ── */
+    .warn-banner{display:none;background:rgba(245,166,35,.08);border:1px solid rgba(245,166,35,.3);
+      border-radius:2px;padding:.5rem .8rem;font-size:.75rem;color:var(--amber);
+      margin-bottom:.8rem;align-items:center;gap:.4rem}
+    .warn-banner.show{display:flex}
+
+    /* ── Complete screen ── */
+    #step-complete .complete-hero{text-align:center;padding:1.5rem 0}
+    .complete-falcon{width:70px;height:85px;color:var(--gold);margin:0 auto .8rem;
+      filter:drop-shadow(0 0 20px var(--gold-glow));animation:hover-fly 3s ease-in-out infinite}
+    @keyframes hover-fly{0%,100%{transform:translateY(0)}50%{transform:translateY(-8px)}}
+    .complete-title{font-family:'Orbitron',monospace;font-size:1.5rem;font-weight:900;
+      letter-spacing:.25em;color:var(--gold);text-shadow:0 0 30px var(--gold-glow);margin-bottom:.5rem}
+    .complete-sub{font-size:.85rem;color:var(--text-dim);margin-bottom:1.5rem}
+    .complete-summary{text-align:left;background:rgba(46,204,138,.06);
+      border:1px solid rgba(46,204,138,.2);border-radius:3px;padding:.9rem 1.1rem;margin-bottom:1.2rem}
+    .summary-row{display:flex;align-items:center;gap:.6rem;font-size:.78rem;padding:.25rem 0}
+    .summary-row .sicon{color:var(--green);font-size:.9rem}
+    .summary-row .sicon.skip{color:var(--text-muted)}
+    .summary-row .sicon.prev{color:var(--blue)}
+    .summary-row .slabel{color:var(--text-dim);width:110px;flex-shrink:0}
+    .summary-row .sval{font-family:'JetBrains Mono',monospace;color:var(--text);
+      overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+
+    /* ── Welcome screen ── */
+    #step-welcome .welcome-inner{text-align:center;padding:1rem 0 .5rem}
+    .welcome-falcon{width:60px;height:73px;color:var(--gold);margin:0 auto 1rem;
+      filter:drop-shadow(0 0 14px var(--gold-glow));animation:falcon-pulse 3s ease-in-out infinite}
+    @keyframes falcon-pulse{0%,100%{filter:drop-shadow(0 0 14px var(--gold-glow))}
+      50%{filter:drop-shadow(0 0 28px rgba(245,166,35,.7))}}
+    .welcome-title{font-family:'Orbitron',monospace;font-size:1.3rem;font-weight:900;
+      letter-spacing:.3em;color:var(--gold);margin-bottom:.4rem;
+      text-shadow:0 0 20px var(--gold-glow)}
+    .welcome-sub{font-size:.82rem;color:var(--text-dim);margin-bottom:1.4rem;line-height:1.65;
+      max-width:460px;margin-left:auto;margin-right:auto}
+    .welcome-checklist{text-align:left;display:inline-block;margin:.3rem 0 1rem}
+    .check-item{display:flex;align-items:center;gap:.5rem;font-size:.8rem;
+      color:var(--text-dim);padding:.2rem 0}
+    .check-item::before{content:'⬡';color:var(--gold);font-size:.7rem}
+
+    /* Misc */
+    hr.divider{border:none;border-top:1px solid var(--border);margin:.8rem 0}
+    .amber{color:var(--amber)}
+  </style>
+</head>
+<body>
+
+<canvas id="bg"></canvas>
+
+<svg class="mountains" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1440 260" preserveAspectRatio="none">
+  <path d="M0,260 L0,180 L80,130 L160,160 L260,80 L360,130 L440,90 L520,140 L620,50 L700,110 L780,70 L860,120 L940,40 L1020,100 L1100,60 L1180,120 L1260,80 L1340,140 L1440,100 L1440,260 Z" fill="#0a1a2e"/>
+  <path d="M0,260 L0,200 L100,165 L200,185 L310,140 L420,165 L500,150 L580,170 L680,125 L760,155 L840,135 L920,158 L1000,120 L1080,148 L1160,130 L1260,155 L1360,138 L1440,155 L1440,260 Z" fill="#0d2035"/>
+</svg>
+
+<div class="page">
+
+  <!-- Header -->
+  <div class="setup-header">
+    <svg class="hdr-falcon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 240 280" fill="currentColor">
+      <path d="M120 18 C115 26 108 40 104 58 C100 76 99 96 100 116 C101 132 103 144 106 154 C109 162 113 167 120 169 C127 167 131 162 134 154 C137 144 139 132 140 116 C141 96 140 76 136 58 C132 40 125 26 120 18 Z"/>
+      <path d="M105 78 C91 70 72 59 52 46 C34 34 18 25 6 19 C18 31 35 45 54 60 C69 73 87 82 102 89 Z"/>
+      <path d="M135 78 C149 70 168 59 188 46 C206 34 222 25 234 19 C222 31 205 45 186 60 C171 73 153 82 138 89 Z"/>
+      <ellipse cx="120" cy="13" rx="12" ry="14"/>
+      <path d="M115 23 Q120 31 125 23 Q125 28 120 33 Q115 28 115 23 Z"/>
+      <path d="M108 163 C105 175 104 187 106 198 C108 206 113 212 120 214 C127 212 132 206 134 198 C136 187 135 175 132 163 Z"/>
+    </svg>
+    <div class="hdr-text">
+      <h1>FALCONER</h1>
+      <p>{% if setup_complete %}SYSTEM RECONFIGURATION{% else %}FIRST-TIME SETUP WIZARD{% endif %}</p>
+    </div>
+  </div>
+
+  <!-- Progress indicator -->
+  <div class="progress-wrap">
+    <div class="progress-steps" id="progress-steps">
+      <div class="step-node active" data-step="0"><div class="step-dot">01</div><div class="step-label">Welcome</div></div>
+      <div class="step-node"        data-step="1"><div class="step-dot">02</div><div class="step-label">Bitcoin</div></div>
+      <div class="step-node"        data-step="2"><div class="step-dot">03</div><div class="step-label">Electrs</div></div>
+      <div class="step-node"        data-step="3"><div class="step-dot">04</div><div class="step-label">Mempool</div></div>
+      <div class="step-node"        data-step="4"><div class="step-dot">05</div><div class="step-label">LNbits</div></div>
+      <div class="step-node"        data-step="5"><div class="step-dot">06</div><div class="step-label">AI Model</div></div>
+      <div class="step-node"        data-step="6"><div class="step-dot">07</div><div class="step-label">n8n</div></div>
+      <div class="step-node"        data-step="7"><div class="step-dot">08</div><div class="step-label">Access</div></div>
+      <div class="step-node"        data-step="8"><div class="step-dot">✔</div><div class="step-label">Complete</div></div>
+    </div>
+  </div>
+
+  <!-- ════════ STEP 0 — Welcome ════════ -->
+  <div class="step-card active" id="step-welcome">
+    <div class="card-corner cc-tl"></div><div class="card-corner cc-tr"></div>
+    <div class="card-corner cc-bl"></div><div class="card-corner cc-br"></div>
+    <div class="welcome-inner">
+      <svg class="welcome-falcon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 240 280" fill="currentColor">
+        <path d="M120 18 C115 26 108 40 104 58 C100 76 99 96 100 116 C101 132 103 144 106 154 C109 162 113 167 120 169 C127 167 131 162 134 154 C137 144 139 132 140 116 C141 96 140 76 136 58 C132 40 125 26 120 18 Z"/>
+        <path d="M105 78 C91 70 72 59 52 46 C34 34 18 25 6 19 C18 31 35 45 54 60 C69 73 87 82 102 89 Z"/>
+        <path d="M135 78 C149 70 168 59 188 46 C206 34 222 25 234 19 C222 31 205 45 186 60 C171 73 153 82 138 89 Z"/>
+        <ellipse cx="120" cy="13" rx="12" ry="14"/>
+        <path d="M115 23 Q120 31 125 23 Q125 28 120 33 Q115 28 115 23 Z"/>
+        <path d="M108 163 C105 175 104 187 106 198 C108 206 113 212 120 214 C127 212 132 206 134 198 C136 187 135 175 132 163 Z"/>
+      </svg>
+      <div class="welcome-title">{% if setup_complete %}RECONFIGURE{% else %}INITIALISE{% endif %}</div>
+      <div class="welcome-sub">
+        This wizard connects Falconer to your infrastructure.
+        Each service can run <strong style="color:var(--text)">locally</strong> or on a <strong style="color:var(--text)">remote machine</strong> — just enter the host.
+        Every step includes a live connection test before saving.
+      </div>
+      <div class="welcome-checklist">
+        <div class="check-item">Bitcoin Core / Knots node (RPC) — LAN, remote, or Tor</div>
+        <div class="check-item">Electrs block explorer — local, remote, or Tor .onion</div>
+        <div class="check-item">Mempool — public mempool.space or your own instance</div>
+        <div class="check-item">LNbits Lightning wallet — with optional Start9 no-port mode</div>
+        <div class="check-item">vLLM / OpenAI-compatible AI endpoint</div>
+        <div class="check-item">n8n automation — instance URL + API key (optional)</div>
+        <div class="check-item">Dashboard login credentials</div>
+      </div>
+    </div>
+    <div class="card-nav">
+      <div class="nav-spacer"></div>
+      <button class="btn btn-primary" onclick="goStep(1)">&#9658; BEGIN SETUP</button>
+    </div>
+  </div>
+
+  <!-- ════════ STEP 1 — Bitcoin Node ════════ -->
+  <div class="step-card" id="step-bitcoin">
+    <div class="card-corner cc-tl"></div><div class="card-corner cc-tr"></div>
+    <div class="card-corner cc-bl"></div><div class="card-corner cc-br"></div>
+    <div class="card-title">&#9656; BITCOIN NODE</div>
+    <div class="card-desc">
+      Connect to your Bitcoin Core or Knots node via RPC.
+      Paste a <strong style="color:var(--gold)">btcstandup://</strong> Quick Connect URI to auto-fill all fields,
+      or enter details manually. Tor hidden services (<code style="color:var(--gold)">.onion</code>) are supported.
+    </div>
+
+    <!-- btcstandup quick-parse -->
+    <div style="margin-bottom:1rem">
+      <div style="font-size:.68rem;letter-spacing:.15em;color:var(--text-dim);text-transform:uppercase;
+        font-weight:600;margin-bottom:.3rem">Quick Connect URI (btcstandup://…)</div>
+      <div style="display:flex;gap:.5rem">
+        <input id="btc-quickconnect" type="text" style="flex:1;background:rgba(4,8,15,.7);
+          border:1px solid var(--border);border-radius:2px;padding:.5rem .75rem;
+          font-family:'JetBrains Mono',monospace;font-size:.8rem;color:var(--text);outline:none"
+          placeholder="btcstandup://user:pass@host.onion:8332"
+          oninput="parseBtcstandup(this.value)"/>
+        <button class="btn btn-ghost" style="flex-shrink:0;padding:.4rem .8rem;font-size:.6rem"
+          onclick="parseBtcstandup(document.getElementById('btc-quickconnect').value)">PARSE</button>
+      </div>
+      <div style="font-size:.68rem;color:var(--text-muted);margin-top:.25rem">
+        Paste the URI above — fields below fill automatically. The URI is not saved.
+      </div>
+    </div>
+
+    <div class="mode-toggle">
+      <button class="mode-btn active" data-mode="local"  onclick="setMode('bitcoin','local',this)">&#9632; LOCAL</button>
+      <button class="mode-btn"        data-mode="remote" onclick="setMode('bitcoin','remote',this)">&#9654; REMOTE / LAN</button>
+      <button class="mode-btn"        data-mode="tor"    onclick="setMode('bitcoin','tor',this)">&#9670; TOR HIDDEN SERVICE</button>
+    </div>
+
+    <!-- Tor warning banner (shown only in tor mode) -->
+    <div id="btc-tor-warn" style="display:none;align-items:flex-start;gap:.5rem;
+      background:rgba(245,166,35,.06);border:1px solid rgba(245,166,35,.25);
+      border-radius:3px;padding:.7rem .9rem;margin-bottom:.9rem;font-size:.76rem;line-height:1.6">
+      <span style="color:var(--gold);font-size:1rem;flex-shrink:0">&#9670;</span>
+      <div>
+        <strong style="color:var(--gold)">Tor Hidden Service mode</strong><br/>
+        Falconer will route all Bitcoin RPC traffic through the local Tor daemon (SOCKS5).
+        The <strong style="color:var(--text)">Tor daemon</strong> must be running on this machine
+        (<code style="color:var(--gold)">127.0.0.1:9050</code>).
+        Install: <code style="color:var(--text-dim)">brew install tor &amp;&amp; brew services start tor</code>
+      </div>
+    </div>
+
+    <div class="fields-grid">
+      <div class="field">
+        <label>Scheme</label>
+        <select id="btc-scheme">
+          <option value="http" selected>http</option>
+          <option value="https">https</option>
+        </select>
+      </div>
+      <div class="field">
+        <label>Host / IP / .onion</label>
+        <input id="btc-host" type="text" value="127.0.0.1" placeholder="127.0.0.1, hostname, or xyz.onion"
+          oninput="autoDetectTor('bitcoin',this.value)"/>
+      </div>
+
+      <!-- Port row with optional toggle -->
+      <div class="field" id="btc-port-field">
+        <label>RPC Port</label>
+        <input id="btc-port" type="number" value="8332" placeholder="8332"/>
+        <span class="field-hint">mainnet: 8332 · regtest: 18443 · testnet: 18332</span>
+      </div>
+      <div class="field" style="justify-content:flex-end;padding-bottom:.25rem">
+        <label style="visibility:hidden">spacer</label>
+        <label style="display:flex;align-items:center;gap:.4rem;cursor:pointer;
+          font-size:.72rem;color:var(--text-dim);font-weight:400;text-transform:none;letter-spacing:0">
+          <input type="checkbox" id="btc-noport" onchange="toggleNoPort('bitcoin')"
+            style="width:auto;accent-color:var(--gold)"/>
+          No port in URL
+        </label>
+      </div>
+
+      <div class="field">
+        <label>RPC Username</label>
+        <input id="btc-user" type="text" placeholder="bitcoin"/>
+      </div>
+      <div class="field full">
+        <label>RPC Password</label>
+        <input id="btc-pass" type="password" placeholder="your rpc password"/>
+      </div>
+
+      <!-- Tor SOCKS5 — shown only when Tor mode active -->
+      <div class="field full" id="btc-socks5-field" style="display:none">
+        <label>Tor SOCKS5 Proxy</label>
+        <input id="btc-socks5" type="text" value="socks5://127.0.0.1:9050"/>
+        <span class="field-hint">default Tor proxy — change only if Tor runs on a different port</span>
+      </div>
+    </div>
+
+    <div class="test-row">
+      <button class="btn-test" id="test-btc" onclick="testConn('bitcoin')">
+        <span class="spinner"></span><span class="label">&#9656; TEST CONNECTION</span>
+      </button>
+      <div class="test-result" id="result-btc"></div>
+      <span class="skip-link" onclick="goStep(2)">skip →</span>
+    </div>
+
+    <div class="card-nav">
+      <button class="btn btn-ghost" onclick="goStep(0)">&#9664; BACK</button>
+      <div class="nav-spacer"></div>
+      <button class="btn btn-primary" id="next-btc" onclick="goStep(2)">NEXT &#9654;</button>
+    </div>
+  </div>
+
+  <!-- ════════ STEP 2 — Electrs ════════ -->
+  <div class="step-card" id="step-electrs">
+    <div class="card-corner cc-tl"></div><div class="card-corner cc-tr"></div>
+    <div class="card-corner cc-bl"></div><div class="card-corner cc-br"></div>
+    <div class="card-title">&#9656; ELECTRS — BLOCK EXPLORER</div>
+    <div class="card-desc">
+      Electrs provides fast address lookups and transaction data via its HTTP REST API.
+      <strong>Start9 users:</strong> Start9 Electrs only exposes the Electrum TCP protocol
+      externally — use <strong>ESPLORA / MEMPOOL</strong> mode and point Falconer at your
+      local Mempool service, which provides the same REST API. For self-hosted nodes that
+      expose Electrs REST on port 3002, use LOCAL, REMOTE, or TOR mode.
+    </div>
+
+    <div class="mode-toggle">
+      <button class="mode-btn active" data-mode="local"   onclick="setMode('electrs','local',this)">&#9632; LOCAL</button>
+      <button class="mode-btn"        data-mode="remote"  onclick="setMode('electrs','remote',this)">&#9654; REMOTE</button>
+      <button class="mode-btn"        data-mode="tor"     onclick="setMode('electrs','tor',this)">&#9670; TOR HIDDEN SERVICE</button>
+      <button class="mode-btn"        data-mode="esplora" onclick="setMode('electrs','esplora',this)">&#9670; ESPLORA / MEMPOOL</button>
+    </div>
+
+    <!-- ESPLORA info banner — shown only in esplora mode -->
+    <div id="elec-esplora-banner" style="display:none;margin-bottom:.9rem;
+      background:rgba(0,180,255,.06);border:1px solid rgba(0,180,255,.3);
+      border-radius:3px;padding:.7rem .9rem;font-size:.76rem;line-height:1.6">
+      <span style="color:var(--blue);font-size:1rem">&#9670;</span>
+      <strong style="color:var(--blue)"> ESPLORA / MEMPOOL MODE</strong> — Falconer will prepend
+      <code>/api</code> to all blockchain queries, making it compatible with any
+      <strong>Mempool.space-style Esplora HTTP API</strong>.<br/>
+      <strong>Start9 users:</strong> Enter your local Mempool <code>.onion</code> address
+      (find it at <em>Start9 → Services → Mempool → Interfaces</em>).
+      Or use <code>https://mempool.space</code> for the public API.
+    </div>
+
+    <!-- Local / Remote / Esplora fields -->
+    <div id="elec-reg-fields">
+      <div class="fields-grid">
+        <div class="field">
+          <label>Scheme</label>
+          <select id="elec-scheme">
+            <option value="http" selected>http</option>
+            <option value="https">https</option>
+          </select>
+        </div>
+        <div class="field">
+          <label>Host / IP</label>
+          <input id="elec-host" type="text" value="127.0.0.1" placeholder="127.0.0.1 or 192.168.x.x"/>
+        </div>
+        <div class="field">
+          <label>Port</label>
+          <input id="elec-port" type="number" value="3002" placeholder="3002"/>
+          <span class="field-hint">default REST port: 3002</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Tor-only fields -->
+    <div id="elec-tor-fields" style="display:none">
+      <div style="display:flex;align-items:flex-start;gap:.5rem;
+        background:rgba(245,166,35,.06);border:1px solid rgba(245,166,35,.25);
+        border-radius:3px;padding:.7rem .9rem;margin-bottom:.9rem;font-size:.76rem;line-height:1.6">
+        <span style="color:var(--gold);font-size:1rem;flex-shrink:0">&#9670;</span>
+        <div>
+          <strong style="color:var(--gold)">Tor Hidden Service mode</strong> — for nodes that expose the
+          Electrs <strong>HTTP REST API</strong> as a Tor hidden service on port <strong>3002</strong>.<br/>
+          <strong style="color:var(--red)">Start9 users:</strong> Start9's Electrs only exposes the
+          Electrum TCP binary protocol over Tor (port 50001) — there is no REST API .onion. Use
+          <button onclick="setMode('electrs','esplora',document.querySelector('#step-electrs .mode-btn[data-mode=esplora]'))"
+            style="padding:.15rem .4rem;font-size:.7rem;background:rgba(0,180,255,.12);
+            border:1px solid var(--blue);color:var(--blue);border-radius:2px;cursor:pointer;font-family:inherit">
+            &#9670; ESPLORA / MEMPOOL
+          </button>
+          mode instead and point it at your local Start9 Mempool
+          (<em>Start9 → Services → Mempool → Interfaces</em>).<br/>
+          The <strong style="color:var(--text)">Tor daemon</strong> must be running on this machine
+          (<code style="color:var(--gold)">127.0.0.1:9050</code>).
+          Install: <code style="color:var(--text-dim)">brew install tor &amp;&amp; brew services start tor</code>
+        </div>
+      </div>
+
+      <!-- Electrum quick-connect parser -->
+      <div style="margin-bottom:1rem">
+        <div style="font-size:.68rem;letter-spacing:.15em;color:var(--text-dim);text-transform:uppercase;
+          font-weight:600;margin-bottom:.3rem">Quick Connect (Electrum format — optional)</div>
+        <div style="display:flex;gap:.5rem">
+          <input id="elec-quickconnect" type="text" style="flex:1;background:rgba(4,8,15,.7);
+            border:1px solid var(--border);border-radius:2px;padding:.5rem .75rem;
+            font-family:'JetBrains Mono',monospace;font-size:.8rem;color:var(--text);outline:none"
+            placeholder="xyz.onion:3002 or xyz.onion:50001:t"
+            oninput="parseElectrumConnect(this.value)"/>
+          <button class="btn btn-ghost" style="flex-shrink:0;padding:.4rem .8rem;font-size:.6rem"
+            onclick="parseElectrumConnect(document.getElementById('elec-quickconnect').value)">PARSE</button>
+        </div>
+        <!-- Protocol explanation panel — shown after parse -->
+        <div id="elec-protocol-warn" style="display:none;margin-top:.5rem;padding:.6rem .8rem;
+          border-radius:2px;font-size:.74rem;line-height:1.6;border:1px solid rgba(231,76,90,.4);
+          background:rgba(231,76,90,.07);color:var(--red)"></div>
+        <div style="font-size:.68rem;color:var(--text-muted);margin-top:.25rem">
+          Format: <code style="color:var(--text-dim)">host:port:protocol</code> —
+          <code>t</code> = Electrum TCP (port 50001) · <code>s</code> = Electrum SSL (port 50002).
+          These are <strong style="color:var(--text)">not</strong> HTTP REST ports — see warning below.
+        </div>
+      </div>
+
+      <div class="fields-grid">
+        <div class="field full">
+          <label>.onion Address</label>
+          <input id="elec-onion" type="text" placeholder="abcdefgh.onion"/>
+          <span class="field-hint">the full .onion hostname — no http:// prefix</span>
+        </div>
+        <div class="field">
+          <label>HTTP REST Port</label>
+          <input id="elec-tor-port" type="number" value="3002" placeholder="3002"/>
+          <div style="font-size:.68rem;line-height:1.5;margin-top:.25rem;
+            padding:.35rem .5rem;border-radius:2px;border:1px solid rgba(245,166,35,.35);
+            background:rgba(245,166,35,.06);color:var(--gold)">
+            &#9888; <strong>HTTP REST port only</strong> — ports 50001 (Electrum TCP) and 50002
+            (Electrum SSL) use a binary wire protocol and will not work here.<br/><br/>
+            <strong>Start9 users:</strong> Try the same <code>.onion</code> hostname with port
+            <strong>3002</strong> — some Start9 setups route the REST API over the same Tor
+            hidden service on a different port. If that fails, switch to
+            <strong>REMOTE</strong> mode and use your node's LAN IP or
+            <code>.local</code> hostname with port 3002.
+          </div>
+        </div>
+        <div class="field full">
+          <label>Tor SOCKS5 Proxy</label>
+          <input id="elec-socks5" type="text" value="socks5://127.0.0.1:9050"/>
+          <span class="field-hint">default Tor proxy — change only if Tor runs on a different port</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="test-row">
+      <button class="btn-test" id="test-elec" onclick="testConn('electrs')">
+        <span class="spinner"></span><span class="label">&#9656; TEST CONNECTION</span>
+      </button>
+      <div class="test-result" id="result-elec"></div>
+      <span class="skip-link" onclick="goStep(3)">skip →</span>
+    </div>
+
+    <div class="card-nav">
+      <button class="btn btn-ghost" onclick="goStep(1)">&#9664; BACK</button>
+      <div class="nav-spacer"></div>
+      <button class="btn btn-primary" onclick="goStep(3)">NEXT &#9654;</button>
+    </div>
+  </div>
+
+  <!-- ════════ STEP 3 — Mempool ════════ -->
+  <div class="step-card" id="step-mempool">
+    <div class="card-corner cc-tl"></div><div class="card-corner cc-tr"></div>
+    <div class="card-corner cc-bl"></div><div class="card-corner cc-br"></div>
+    <div class="card-title">&#9656; MEMPOOL — BLOCK EXPLORER</div>
+    <div class="card-desc">
+      Mempool provides fee estimates and mempool statistics. Use the public
+      <strong style="color:var(--text)">mempool.space</strong> instance, or connect to your
+      <strong style="color:var(--text)">own Mempool</strong> instance — including addresses ending in
+      <code style="color:var(--gold)">.local</code>,
+      <code style="color:var(--gold)">.onion</code>, or a LAN IP.
+    </div>
+
+    <div class="mode-toggle">
+      <button class="mode-btn active" data-mode="public" onclick="setMode('mempool','public',this)">&#9670; PUBLIC</button>
+      <button class="mode-btn"        data-mode="local"  onclick="setMode('mempool','local',this)">&#9632; LOCAL</button>
+      <button class="mode-btn"        data-mode="remote" onclick="setMode('mempool','remote',this)">&#9654; REMOTE / LAN</button>
+      <button class="mode-btn"        data-mode="tor"    onclick="setMode('mempool','tor',this)">&#9670; TOR HIDDEN SERVICE</button>
+    </div>
+
+    <!-- Tor info banner -->
+    <div id="mempool-tor-warn" style="display:none;align-items:flex-start;gap:.5rem;
+      background:rgba(245,166,35,.06);border:1px solid rgba(245,166,35,.25);
+      border-radius:3px;padding:.7rem .9rem;margin-bottom:.9rem;font-size:.76rem;line-height:1.6">
+      <span style="color:var(--gold);font-size:1rem;flex-shrink:0">&#9670;</span>
+      <div>
+        <strong style="color:var(--gold)">Tor Hidden Service mode</strong><br/>
+        Falconer will route Mempool traffic through the local Tor daemon (SOCKS5 <code style="color:var(--gold)">127.0.0.1:9050</code>).
+        Enter the full <code style="color:var(--gold)">.onion</code> URL including scheme, e.g.
+        <code style="color:var(--text-dim)">http://mempoolhiddenxyz.onion</code>.
+      </div>
+    </div>
+
+    <div class="fields-grid">
+      <div class="field full">
+        <label>Base URL</label>
+        <input id="mempool-url" type="text" value="https://mempool.space"
+          placeholder="https://mempool.space or http://xyz.onion"
+          oninput="autoDetectTor('mempool',this.value)"/>
+        <span class="field-hint">do not include /api — just the host root</span>
+      </div>
+      <div class="field full" id="mempool-socks5-field" style="display:none">
+        <label>Tor SOCKS5 Proxy</label>
+        <input id="mempool-socks5" type="text" value="socks5://127.0.0.1:9050"/>
+        <span class="field-hint">default Tor proxy — change only if Tor runs on a different port</span>
+      </div>
+    </div>
+
+    <div class="test-row">
+      <button class="btn-test" id="test-mempool" onclick="testConn('mempool')">
+        <span class="spinner"></span><span class="label">&#9656; TEST CONNECTION</span>
+      </button>
+      <div class="test-result" id="result-mempool"></div>
+      <span class="skip-link" onclick="goStep(4)">skip →</span>
+    </div>
+
+    <div class="card-nav">
+      <button class="btn btn-ghost" onclick="goStep(2)">&#9664; BACK</button>
+      <div class="nav-spacer"></div>
+      <button class="btn btn-primary" onclick="goStep(4)">NEXT &#9654;</button>
+    </div>
+  </div>
+
+  <!-- ════════ STEP 4 — LNbits ════════ -->
+  <div class="step-card" id="step-lnbits">
+    <div class="card-corner cc-tl"></div><div class="card-corner cc-tr"></div>
+    <div class="card-corner cc-bl"></div><div class="card-corner cc-br"></div>
+    <div class="card-title">&#9656; LNBITS — LIGHTNING WALLET</div>
+    <div class="card-desc">
+      LNbits manages your Lightning Network wallet. You'll need your wallet's
+      <strong style="color:var(--text)">Invoice/Admin API key</strong> from the LNbits wallet settings page.
+      Start9 nodes typically serve LNbits with <strong style="color:var(--text)">no explicit port</strong> —
+      tick the toggle below if that applies.
+    </div>
+
+    <div class="mode-toggle">
+      <button class="mode-btn active" onclick="setMode('lnbits','local',this)">&#9632; LOCAL</button>
+      <button class="mode-btn"        onclick="setMode('lnbits','remote',this)">&#9654; REMOTE / START9</button>
+    </div>
+
+    <div class="fields-grid">
+      <div class="field">
+        <label>Scheme</label>
+        <select id="ln-scheme">
+          <option value="http" selected>http</option>
+          <option value="https">https</option>
+        </select>
+      </div>
+      <div class="field">
+        <label>Host / IP / .local</label>
+        <input id="ln-host" type="text" value="127.0.0.1"
+          placeholder="127.0.0.1, hostname, or xyz.local"/>
+      </div>
+
+      <!-- Port + no-port toggle -->
+      <div class="field" id="ln-port-field">
+        <label>Port</label>
+        <input id="ln-port" type="number" value="5000" placeholder="5000"/>
+        <span class="field-hint">default: 5000 · Start9/embeds may use no port</span>
+      </div>
+      <div class="field" style="justify-content:flex-end;padding-bottom:.25rem">
+        <label style="visibility:hidden">spacer</label>
+        <label style="display:flex;align-items:center;gap:.4rem;cursor:pointer;
+          font-size:.72rem;color:var(--text-dim);font-weight:400;text-transform:none;letter-spacing:0">
+          <input type="checkbox" id="ln-noport" onchange="toggleNoPort('lnbits')"
+            style="width:auto;accent-color:var(--gold)"/>
+          No port in URL (Start9)
+        </label>
+      </div>
+
+      <div class="field full">
+        <label>API Key (Admin or Invoice)</label>
+        <input id="ln-apikey" type="password" placeholder="your lnbits api key"/>
+      </div>
+      <div class="field full">
+        <label>Wallet ID <span style="color:var(--text-muted)">(optional)</span></label>
+        <input id="ln-walletid" type="text" placeholder="wallet id from lnbits url"/>
+      </div>
+    </div>
+
+    <div class="test-row">
+      <button class="btn-test" id="test-ln" onclick="testConn('lnbits')">
+        <span class="spinner"></span><span class="label">&#9656; TEST CONNECTION</span>
+      </button>
+      <div class="test-result" id="result-ln"></div>
+      <span class="skip-link" onclick="goStep(5)">skip →</span>
+    </div>
+
+    <div class="card-nav">
+      <button class="btn btn-ghost" onclick="goStep(3)">&#9664; BACK</button>
+      <div class="nav-spacer"></div>
+      <button class="btn btn-primary" onclick="goStep(5)">NEXT &#9654;</button>
+    </div>
+  </div>
+
+  <!-- ════════ STEP 4 — vLLM / AI ════════ -->
+  <div class="step-card" id="step-vllm">
+    <div class="card-corner cc-tl"></div><div class="card-corner cc-tr"></div>
+    <div class="card-corner cc-bl"></div><div class="card-corner cc-br"></div>
+    <div class="card-title">&#9656; AI MODEL — vLLM / OPENAI ENDPOINT</div>
+    <div class="card-desc">
+      Falconer uses any <strong style="color:var(--text)">OpenAI-compatible API</strong> — vLLM, Ollama's OpenAI layer, LM Studio, or a cloud provider.
+      Enter the <strong style="color:var(--text)">base URL</strong> (ending in <code style="color:var(--gold)">/v1</code>) and the exact model name to use.
+    </div>
+
+    <div class="mode-toggle">
+      <button class="mode-btn active" onclick="setMode('vllm','local',this)">&#9632; LOCAL</button>
+      <button class="mode-btn"        onclick="setMode('vllm','remote',this)">&#9654; REMOTE / CLOUD</button>
+    </div>
+
+    <div class="fields-grid">
+      <div class="field full">
+        <label>Base URL</label>
+        <input id="vllm-url" type="text" value="http://localhost:8000/v1"
+               placeholder="http://192.168.1.50:8000/v1"/>
+        <span class="field-hint">must end in /v1 &nbsp;·&nbsp; e.g. http://localhost:8000/v1 &nbsp;·&nbsp; https://api.openai.com/v1</span>
+      </div>
+      <div class="field full">
+        <label>Model Name</label>
+        <input id="vllm-model" type="text" value="llama3.1:8b"
+               placeholder="llama3.1:8b · mistral-7b · gpt-4o · etc."/>
+        <span class="field-hint">must exactly match the model ID served by the endpoint</span>
+      </div>
+      <div class="field full">
+        <label>API Key <span style="color:var(--text-muted)">(optional for local vLLM — required for OpenAI, Together, etc.)</span></label>
+        <input id="vllm-apikey" type="password" placeholder="sk-… or leave blank for unauthenticated endpoints"/>
+        <span class="field-hint">sent as <code>Authorization: Bearer &lt;key&gt;</code> — leave blank if your endpoint requires no auth</span>
+      </div>
+    </div>
+
+    <div class="test-row">
+      <button class="btn-test" id="test-vllm" onclick="testConn('vllm')">
+        <span class="spinner"></span><span class="label">&#9656; TEST CONNECTION</span>
+      </button>
+      <div class="test-result" id="result-vllm"></div>
+      <span class="skip-link" onclick="goStep(6)">skip →</span>
+    </div>
+
+    <div class="card-nav">
+      <button class="btn btn-ghost" onclick="goStep(4)">&#9664; BACK</button>
+      <div class="nav-spacer"></div>
+      <button class="btn btn-primary" onclick="goStep(6)">NEXT &#9654;</button>
+    </div>
+  </div>
+
+  <!-- ════════ STEP 6 — n8n ════════ -->
+  <div class="step-card" id="step-n8n">
+    <div class="card-corner cc-tl"></div><div class="card-corner cc-tr"></div>
+    <div class="card-corner cc-bl"></div><div class="card-corner cc-br"></div>
+    <div class="card-title">&#9656; n8n AUTOMATION <span style="color:var(--text-muted);font-size:.7rem">(OPTIONAL)</span></div>
+    <div class="card-desc">
+      n8n receives funding proposal notifications and sends approve/reject decisions back to Falconer.
+      Enter your n8n instance URL and API key to test workflow access.
+      Leave everything blank to skip — you can configure this later from the dashboard.
+    </div>
+
+    <div class="fields-grid">
+      <div class="field full">
+        <label>n8n Instance URL <span style="color:var(--text-muted)">(for API access)</span></label>
+        <input id="n8n-base-url" type="text"
+          placeholder="https://your-n8n.example.com"
+          oninput="n8nUrlChanged()"/>
+        <span class="field-hint">the root URL of your n8n instance — do not include /api or /webhook</span>
+      </div>
+      <div class="field full">
+        <label>n8n API Key <span style="color:var(--text-muted)">(optional — for workflow access test)</span></label>
+        <input id="n8n-apikey" type="password"
+          placeholder="n8n-api-…  leave blank to skip API test"
+          oninput="n8nUrlChanged()"/>
+        <span class="field-hint">create one in n8n → Settings → n8n API</span>
+      </div>
+      <div class="field full">
+        <label>Webhook URL <span style="color:var(--text-muted)">(the Falconer proposal webhook)</span></label>
+        <input id="n8n-url" type="text"
+          placeholder="https://your-n8n.example.com/webhook/falconer-proposal"
+          oninput="n8nUrlChanged()"/>
+      </div>
+      <div class="field full">
+        <label>Webhook Secret (HMAC) <span style="color:var(--text-muted)">(optional)</span></label>
+        <input id="n8n-secret" type="password" placeholder="shared secret for signature verification"/>
+        <span class="field-hint">leave blank to disable signature verification</span>
+      </div>
+    </div>
+
+    <div class="test-row" id="n8n-test-row" style="display:none">
+      <button class="btn-test" id="test-n8n" onclick="testConn('n8n')">
+        <span class="spinner"></span><span class="label">&#9656; TEST CONNECTION</span>
+      </button>
+      <div class="test-result" id="result-n8n"></div>
+    </div>
+
+    <div class="card-nav">
+      <button class="btn btn-ghost" onclick="goStep(5)">&#9664; BACK</button>
+      <div class="nav-spacer"></div>
+      <span class="skip-link" style="margin-right:.5rem" onclick="goStep(7)">skip →</span>
+      <button class="btn btn-primary" onclick="goStep(7)">NEXT &#9654;</button>
+    </div>
+  </div>
+
+  <!-- ════════ STEP 7 — Dashboard access ════════ -->
+  <div class="step-card" id="step-access">
+    <div class="card-corner cc-tl"></div><div class="card-corner cc-tr"></div>
+    <div class="card-corner cc-bl"></div><div class="card-corner cc-br"></div>
+    <div class="card-title">&#9656; DASHBOARD ACCESS</div>
+    <div class="card-desc">
+      Set the credentials used to log in to this dashboard.
+      Defaults are <code style="color:var(--gold)">admin / falconer</code> — change these before exposing to a network.
+    </div>
+
+    <div class="fields-grid">
+      <div class="field">
+        <label>Username</label>
+        <input id="dash-user" type="text" value="admin" placeholder="admin"/>
+      </div>
+      <div class="field">
+        <label>Password</label>
+        <input id="dash-pass" type="password" placeholder="new password"/>
+      </div>
+      <div class="field">
+        <label>Confirm Password</label>
+        <input id="dash-pass2" type="password" placeholder="confirm password"/>
+      </div>
+    </div>
+    <div id="pass-mismatch" style="display:none;color:var(--red);font-size:.75rem;margin-top:.5rem">
+      ⚠ Passwords do not match
+    </div>
+
+    <div class="card-nav">
+      <button class="btn btn-ghost" onclick="goStep(6)">&#9664; BACK</button>
+      <div class="nav-spacer"></div>
+      <button class="btn btn-primary" onclick="validateAccessAndNext()">REVIEW &#9654;</button>
+    </div>
+  </div>
+
+  <!-- ════════ STEP 8 — Complete ════════ -->
+  <div class="step-card" id="step-complete">
+    <div class="card-corner cc-tl"></div><div class="card-corner cc-tr"></div>
+    <div class="card-corner cc-bl"></div><div class="card-corner cc-br"></div>
+
+    <div class="complete-hero">
+      <svg class="complete-falcon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 240 280" fill="currentColor">
+        <path d="M120 18 C115 26 108 40 104 58 C100 76 99 96 100 116 C101 132 103 144 106 154 C109 162 113 167 120 169 C127 167 131 162 134 154 C137 144 139 132 140 116 C141 96 140 76 136 58 C132 40 125 26 120 18 Z"/>
+        <path d="M105 78 C91 70 72 59 52 46 C34 34 18 25 6 19 C18 31 35 45 54 60 C69 73 87 82 102 89 Z"/>
+        <path d="M135 78 C149 70 168 59 188 46 C206 34 222 25 234 19 C222 31 205 45 186 60 C171 73 153 82 138 89 Z"/>
+        <ellipse cx="120" cy="13" rx="12" ry="14"/>
+        <path d="M115 23 Q120 31 125 23 Q125 28 120 33 Q115 28 115 23 Z"/>
+        <path d="M108 163 C105 175 104 187 106 198 C108 206 113 212 120 214 C127 212 132 206 134 198 C136 187 135 175 132 163 Z"/>
+      </svg>
+      <div class="complete-title">READY TO HUNT</div>
+      <div class="complete-sub">Review your configuration below, then save to launch Falconer.</div>
+    </div>
+
+    <div class="complete-summary" id="config-summary">
+      <!-- filled by JS -->
+    </div>
+
+    <div id="save-error" style="display:none;color:var(--red);font-size:.78rem;
+      padding:.5rem .8rem;border:1px solid rgba(231,76,90,.3);border-radius:2px;margin-bottom:.8rem"></div>
+
+    <div class="card-nav">
+      <button class="btn btn-ghost" onclick="goStep(7)">&#9664; BACK</button>
+      <div class="nav-spacer"></div>
+      <button class="btn btn-success" id="btn-save" onclick="saveConfig()">
+        &#9658; SAVE &amp; LAUNCH FALCONER
+      </button>
+    </div>
+  </div>
+
+</div><!-- .page -->
+
+<script>
+// ═══════════════════════════════════════════════════════════════════
+//  Setup Wizard Controller
+// ═══════════════════════════════════════════════════════════════════
+
+const STEP_IDS = ['welcome','bitcoin','electrs','mempool','lnbits','vllm','n8n','access','complete'];
+let currentStep = 0;
+const testedOk = {};       // tested OK in this wizard session
+const prevConfigured = {}; // had values in .env before wizard opened
+
+// Pre-fill from existing env vars passed from server
+const existingEnv = {{ env | tojson }};
+
+function prefillFromEnv() {
+  function set(id, key) {
+    const v = existingEnv[key];
+    const el = document.getElementById(id);
+    if (el && v) el.value = v;
+  }
+  // Bitcoin
+  set('btc-scheme', 'BITCOIND_SCHEME');
+  set('btc-host',   'BITCOIND_HOST_IP');
+  set('btc-port',   'BITCOIND_PORT');
+  set('btc-user',   'BITCOIND_RPC_USER');
+  set('btc-socks5', 'TOR_SOCKS_PROXY');
+  if (existingEnv['BITCOIND_NO_PORT'] === 'true') {
+    const cb = document.getElementById('btc-noport');
+    if (cb) { cb.checked = true; toggleNoPort('bitcoin'); }
+  }
+  // Auto-select Tor for Bitcoin if .onion or USE_TOR flag
+  const btcHost = existingEnv['BITCOIND_HOST_IP'] || '';
+  if (btcHost.endsWith('.onion') || existingEnv['BITCOIND_USE_TOR'] === 'true') {
+    const torBtn = document.querySelector('#step-bitcoin .mode-btn[data-mode="tor"]');
+    if (torBtn) setMode('bitcoin', 'tor', torBtn);
+  }
+
+  // Electrs
+  set('elec-scheme', 'ELECTRS_SCHEME');
+  set('elec-host',   'ELECTRS_HOST_IP');
+  set('elec-port',   'ELECTRS_PORT');
+  set('elec-socks5', 'TOR_SOCKS_PROXY');
+  const existingElecHost   = existingEnv['ELECTRS_HOST_IP'] || '';
+  const existingElecPrefix = existingEnv['ELECTRS_API_PREFIX'] || '';
+  if (existingElecPrefix === '/api') {
+    // Previously configured as Esplora/Mempool mode
+    const esploraBtn = document.querySelector('#step-electrs .mode-btn[data-mode="esplora"]');
+    if (esploraBtn) setMode('electrs', 'esplora', esploraBtn);
+  } else if (existingElecHost.endsWith('.onion') || existingEnv['ELECTRS_USE_TOR'] === 'true') {
+    const torBtn = document.querySelector('#step-electrs .mode-btn[data-mode="tor"]');
+    if (torBtn) setMode('electrs', 'tor', torBtn);
+    const onionEl = document.getElementById('elec-onion');
+    if (onionEl && existingElecHost) onionEl.value = existingElecHost;
+    const portEl = document.getElementById('elec-tor-port');
+    if (portEl && existingEnv['ELECTRS_PORT']) portEl.value = existingEnv['ELECTRS_PORT'];
+  }
+
+  // Mempool
+  const mempoolUrl = existingEnv['MEMPOOL_BASE_URL'] || 'https://mempool.space';
+  set('mempool-url', 'MEMPOOL_BASE_URL');
+  set('mempool-socks5', 'TOR_SOCKS_PROXY');
+  if (mempoolUrl !== 'https://mempool.space') {
+    // Non-default: auto-select appropriate mode
+    if (mempoolUrl.includes('.onion') || existingEnv['MEMPOOL_USE_TOR'] === 'true') {
+      const torBtn = document.querySelector('#step-mempool .mode-btn[data-mode="tor"]');
+      if (torBtn) setMode('mempool', 'tor', torBtn);
+    } else {
+      const remoteBtn = document.querySelector('#step-mempool .mode-btn[data-mode="remote"]');
+      if (remoteBtn) setMode('mempool', 'remote', remoteBtn);
+    }
+  }
+
+  // LNbits
+  set('ln-scheme',   'LNBITS_SCHEME');
+  set('ln-host',     'LNBITS_HOST_IP');
+  set('ln-port',     'LNBITS_PORT');
+  set('ln-apikey',   'LNBITS_API_KEY');
+  set('ln-walletid', 'LNBITS_WALLET_ID');
+  if (existingEnv['LNBITS_NO_PORT'] === 'true') {
+    const cb = document.getElementById('ln-noport');
+    if (cb) { cb.checked = true; toggleNoPort('lnbits'); }
+  }
+
+  // vLLM
+  set('vllm-url',   'VLLM_BASE_URL');
+  set('vllm-model', 'VLLM_MODEL');
+
+  // n8n
+  set('n8n-base-url', 'N8N_BASE_URL');
+  set('n8n-url',      'N8N_WEBHOOK_URL');
+
+  // Dashboard
+  set('dash-user', 'DASHBOARD_USER');
+  // never prefill passwords/keys from env
+
+  // ── Mark previously-configured services ──────────────────────────
+  // A service is "previously configured" if its key fields are present in .env
+  prevConfigured.bitcoin = !!(existingEnv['BITCOIND_HOST_IP'] && existingEnv['BITCOIND_RPC_USER']);
+  prevConfigured.electrs = !!(existingEnv['ELECTRS_HOST_IP']);
+  prevConfigured.mempool = !!(existingEnv['MEMPOOL_BASE_URL']);
+  prevConfigured.lnbits  = !!(existingEnv['LNBITS_HOST_IP']);
+  prevConfigured.vllm    = !!(existingEnv['VLLM_BASE_URL']);
+  prevConfigured.n8n     = !!(existingEnv['N8N_BASE_URL'] || existingEnv['N8N_WEBHOOK_URL']);
+  // Also seed testedOk from prevConfigured so "skip" on an already-tested service
+  // shows ◎ rather than ○ in the summary
+  Object.assign(testedOk, Object.fromEntries(
+    Object.entries(prevConfigured).filter(([, v]) => v).map(([k]) => [k, 'prev'])
+  ));
+}
+prefillFromEnv();
+
+// ── Step navigation ───────────────────────────────────────────────
+function goStep(n) {
+  if (n === currentStep) return;
+  document.getElementById(`step-${STEP_IDS[currentStep]}`).classList.remove('active');
+  document.querySelectorAll('.step-node').forEach((node, i) => {
+    node.classList.remove('active');
+    if (i < n)  node.classList.add('done');
+    if (i === n) node.classList.add('active');
+    if (i > n)  node.classList.remove('done');
+  });
+  currentStep = n;
+  document.getElementById(`step-${STEP_IDS[n]}`).classList.add('active');
+  if (n === 8) buildSummary();
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+// ── Mode toggle (local / remote / tor / public) ──────────────────
+function setMode(service, mode, btn) {
+  btn.closest('.mode-toggle').querySelectorAll('.mode-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+
+  // ── Electrs ──
+  if (service === 'electrs') {
+    const regFields     = document.getElementById('elec-reg-fields');
+    const torFields     = document.getElementById('elec-tor-fields');
+    const esporaBanner  = document.getElementById('elec-esplora-banner');
+    if (mode === 'tor') {
+      regFields.style.display    = 'none';
+      torFields.style.display    = 'block';
+      esporaBanner.style.display = 'none';
+    } else if (mode === 'esplora') {
+      torFields.style.display    = 'none';
+      regFields.style.display    = 'block';
+      esporaBanner.style.display = 'block';
+      // Sensible defaults for pointing at a Mempool/Esplora endpoint
+      const schemeEl = document.getElementById('elec-scheme');
+      if (schemeEl) schemeEl.value = 'https';
+      document.getElementById('elec-host').value       = '';
+      document.getElementById('elec-host').placeholder = 'mempool.space or your Mempool .onion';
+      document.getElementById('elec-port').value       = '443';
+    } else {
+      torFields.style.display    = 'none';
+      regFields.style.display    = 'block';
+      esporaBanner.style.display = 'none';
+      if (mode === 'local') {
+        document.getElementById('elec-host').value = '127.0.0.1';
+        document.getElementById('elec-port').value = '3002';
+      } else {
+        document.getElementById('elec-host').value       = '';
+        document.getElementById('elec-host').placeholder = '192.168.1.x or hostname.local';
+      }
+    }
+    return;
+  }
+
+  // ── Bitcoin (adds Tor mode) ──
+  if (service === 'bitcoin') {
+    const torWarn  = document.getElementById('btc-tor-warn');
+    const socks5f  = document.getElementById('btc-socks5-field');
+    if (mode === 'tor') {
+      torWarn.style.display  = 'flex';
+      socks5f.style.display  = 'block';
+      document.getElementById('btc-host').value = '';
+      document.getElementById('btc-host').placeholder = 'abcdef.onion';
+    } else {
+      torWarn.style.display  = 'none';
+      socks5f.style.display  = 'none';
+      if (mode === 'local') {
+        document.getElementById('btc-host').value = '127.0.0.1';
+        document.getElementById('btc-port').value = '8332';
+      } else {
+        document.getElementById('btc-host').value = '';
+        document.getElementById('btc-host').placeholder = '192.168.1.x or hostname.local';
+      }
+    }
+    return;
+  }
+
+  // ── Mempool ──
+  if (service === 'mempool') {
+    const torWarn = document.getElementById('mempool-tor-warn');
+    const socks5f = document.getElementById('mempool-socks5-field');
+    if (mode === 'public') {
+      torWarn.style.display = 'none';
+      socks5f.style.display = 'none';
+      document.getElementById('mempool-url').value = 'https://mempool.space';
+    } else if (mode === 'tor') {
+      torWarn.style.display = 'flex';
+      socks5f.style.display = 'block';
+      document.getElementById('mempool-url').value = '';
+      document.getElementById('mempool-url').placeholder = 'http://mempoolxyz.onion';
+    } else {
+      torWarn.style.display = 'none';
+      socks5f.style.display = 'none';
+      document.getElementById('mempool-url').value = mode === 'local'
+        ? 'http://127.0.0.1:8080' : '';
+      document.getElementById('mempool-url').placeholder = mode === 'local'
+        ? 'http://127.0.0.1:8080' : 'https://mempool.myserver.local';
+    }
+    return;
+  }
+
+  // ── LNbits / vLLM ──
+  const DEFAULTS = {
+    lnbits: { local: { host: '127.0.0.1', port: '5000', scheme: 'http' } },
+    vllm:   { local: { url:  'http://localhost:8000/v1'  } },
+  };
+  if (mode === 'local') {
+    const d = DEFAULTS[service]?.local;
+    if (!d) return;
+    if (service === 'vllm') {
+      document.getElementById('vllm-url').value = d.url;
+    } else {
+      document.getElementById('ln-scheme').value = d.scheme || 'http';
+      document.getElementById('ln-host').value = d.host;
+      document.getElementById('ln-port').value = d.port;
+    }
+  } else {
+    if (service === 'vllm') {
+      document.getElementById('vllm-url').value = '';
+      document.getElementById('vllm-url').placeholder = 'https://api.openai.com/v1';
+    } else {
+      // Remote/Start9: default to https — .local and Start9 nodes always use HTTPS
+      document.getElementById('ln-scheme').value = 'https';
+      document.getElementById('ln-host').value = '';
+      document.getElementById('ln-host').placeholder = '192.168.1.x or xyzlocal.local';
+    }
+  }
+}
+
+// ── Helpers ───────────────────────────────────────────────────────
+function toggleNoPort(service) {
+  if (service === 'bitcoin') {
+    const cb    = document.getElementById('btc-noport');
+    const field = document.getElementById('btc-port-field');
+    field.style.opacity        = cb.checked ? '.35' : '1';
+    field.querySelector('input').disabled = cb.checked;
+  } else if (service === 'lnbits') {
+    const cb    = document.getElementById('ln-noport');
+    const field = document.getElementById('ln-port-field');
+    field.style.opacity        = cb.checked ? '.35' : '1';
+    field.querySelector('input').disabled = cb.checked;
+  }
+}
+
+// Auto-detect Tor when user types a .onion address
+function autoDetectTor(service, value) {
+  const isOnion = value.includes('.onion');
+  if (!isOnion) return;
+  if (service === 'bitcoin') {
+    const torBtn = document.querySelector('#step-bitcoin .mode-btn[data-mode="tor"]');
+    if (torBtn && !torBtn.classList.contains('active')) setMode('bitcoin', 'tor', torBtn);
+  } else if (service === 'mempool') {
+    const torBtn = document.querySelector('#step-mempool .mode-btn[data-mode="tor"]');
+    if (torBtn && !torBtn.classList.contains('active')) setMode('mempool', 'tor', torBtn);
+  }
+}
+
+// Parse btcstandup:// URI
+function parseBtcstandup(raw) {
+  const s = (raw || '').trim();
+  if (!s) return;
+  try {
+    // Pattern: btcstandup://user:pass@host:port
+    const m = s.match(/^btcstandup:\/\/([^:]+):([^@]+)@([^:/?]+)(?::(\d+))?/i);
+    if (!m) { alert('Could not parse URI — expected btcstandup://user:pass@host:port'); return; }
+    const [, user, pass, host, port] = m;
+
+    // ── IMPORTANT: call setMode FIRST — it resets/clears the host field ──
+    document.getElementById('btc-scheme').value = 'http';
+    if (host.endsWith('.onion')) {
+      const torBtn = document.querySelector('#step-bitcoin .mode-btn[data-mode="tor"]');
+      if (torBtn) setMode('bitcoin', 'tor', torBtn);
+    } else if (host !== '127.0.0.1' && host !== 'localhost') {
+      const remBtn = document.querySelector('#step-bitcoin .mode-btn[data-mode="remote"]');
+      if (remBtn) setMode('bitcoin', 'remote', remBtn);
+    }
+
+    // ── Set field values AFTER setMode so they aren't cleared ──
+    document.getElementById('btc-user').value = user;
+    document.getElementById('btc-pass').value = pass;
+    document.getElementById('btc-host').value = host;
+    if (port) document.getElementById('btc-port').value = port;
+
+    // Flash the input green briefly
+    const inp = document.getElementById('btc-quickconnect');
+    inp.style.borderColor = 'var(--green)';
+    setTimeout(() => inp.style.borderColor = '', 1500);
+  } catch(e) {
+    alert('Parse error: ' + e.message);
+  }
+}
+
+// Parse Electrum quick-connect format: host:port:protocol (t=TCP, s=SSL)
+function parseElectrumConnect(raw) {
+  const s = (raw || '').trim();
+  if (!s) return;
+  // Format: host:port:t  or  host:port:s  (protocol suffix is optional)
+  const m = s.match(/^([^:]+):(\d+)(?::([tsTSsSt]+))?$/);
+  const warn = document.getElementById('elec-protocol-warn');
+  const inp  = document.getElementById('elec-quickconnect');
+  if (!m) {
+    if (warn) { warn.style.display = 'block'; warn.textContent = 'Could not parse — expected host:port or host:port:t'; }
+    return;
+  }
+  const [, host, port, proto] = m;
+  const pLower = (proto || '').toLowerCase();
+  const isElectrumTCP = pLower === 't' || pLower === 'st' || port === '50001';
+  const isElectrumSSL = pLower === 's' || port === '50002';
+
+  if (isElectrumTCP || isElectrumSSL) {
+    const protoName = isElectrumSSL ? 'SSL (port 50002)' : 'TCP (port 50001)';
+    if (warn) {
+      warn.style.display = 'block';
+      warn.innerHTML = `
+        <strong>⚠ This is an Electrum ${protoName} address</strong> — binary wire protocol, not HTTP REST.<br/><br/>
+        Falconer needs the <strong>Electrs HTTP REST API</strong>. You have two options:<br/><br/>
+        <strong>Option A — Same .onion, port 3002:</strong>
+        Some nodes (including Start9) route the REST API on port <strong>3002</strong> over the
+        same Tor hidden service. Click the button below to try it:
+        <div style="margin:.4rem 0">
+          <button onclick="elecTryPort3002('${host}')" style="padding:.3rem .7rem;font-size:.7rem;
+            background:rgba(0,255,136,.12);border:1px solid var(--green);color:var(--green);
+            border-radius:2px;cursor:pointer;font-family:inherit">
+            &#9654; USE ${host} : 3002
+          </button>
+        </div>
+        <strong>Option B — ESPLORA / MEMPOOL mode (recommended for Start9):</strong>
+        Start9 Electrs does not expose its REST API externally at all. Instead, use your
+        Start9 <strong>Mempool</strong> service — it has a full Esplora HTTP API. Switch to
+        <button onclick="setMode('electrs','esplora',document.querySelector('#step-electrs .mode-btn[data-mode=esplora]'))"
+          style="padding:.2rem .5rem;font-size:.7rem;background:rgba(0,180,255,.12);
+          border:1px solid var(--blue);color:var(--blue);border-radius:2px;cursor:pointer;font-family:inherit">
+          &#9670; ESPLORA / MEMPOOL
+        </button>
+        and enter your Mempool <code>.onion</code> from
+        <em>Start9 → Services → Mempool → Interfaces</em>.<br/>
+        Or for LAN access: switch to
+        <button onclick="setMode('electrs','remote',document.querySelector('#step-electrs .mode-btn[data-mode=remote]'))"
+          style="padding:.2rem .5rem;font-size:.7rem;background:rgba(245,166,35,.12);
+          border:1px solid var(--gold);color:var(--gold);border-radius:2px;cursor:pointer;font-family:inherit">
+          &#9654; REMOTE MODE
+        </button>
+        and enter your Mempool LAN IP/hostname with port <strong>80</strong> or <strong>443</strong>.`;
+    }
+    // Clear the onion field — user will fill it or click the option A button
+    document.getElementById('elec-onion').value = '';
+    document.getElementById('elec-tor-port').value = '3002';
+  } else {
+    // Looks like a genuine REST API address — fill hostname and port
+    if (warn) { warn.style.display = 'none'; }
+    document.getElementById('elec-onion').value = host;
+    document.getElementById('elec-tor-port').value = port;
+  }
+
+  if (inp) {
+    inp.style.borderColor = (isElectrumTCP || isElectrumSSL) ? 'var(--red)' : 'var(--green)';
+    setTimeout(() => inp.style.borderColor = '', 2000);
+  }
+}
+
+// Fill .onion + port 3002 and scroll to the test button (Option A shortcut)
+function elecTryPort3002(host) {
+  document.getElementById('elec-onion').value = host;
+  document.getElementById('elec-tor-port').value = '3002';
+  const warn = document.getElementById('elec-protocol-warn');
+  if (warn) warn.style.display = 'none';
+  document.getElementById('test-elec').scrollIntoView({ behavior: 'smooth', block: 'center' });
+}
+
+// Show n8n test row when any n8n URL is entered
+function n8nUrlChanged() {
+  const hasUrl = (document.getElementById('n8n-base-url')?.value.trim() ||
+                  document.getElementById('n8n-url')?.value.trim());
+  document.getElementById('n8n-test-row').style.display = hasUrl ? 'flex' : 'none';
+}
+
+// ── Connection tester ─────────────────────────────────────────────
+function _isTorMode(service) {
+  const btn = document.querySelector(`#step-${service} .mode-btn[data-mode="tor"]`);
+  return btn?.classList.contains('active') ?? false;
+}
+
+function _isElecEsploraMode() {
+  const btn = document.querySelector('#step-electrs .mode-btn[data-mode="esplora"]');
+  return btn?.classList.contains('active') ?? false;
+}
+
+// Map service → [btn-id, result-id]
+const SERVICE_ELS = {
+  bitcoin: ['test-btc',    'result-btc'],
+  electrs: ['test-elec',   'result-elec'],
+  mempool: ['test-mempool','result-mempool'],
+  lnbits:  ['test-ln',     'result-ln'],
+  vllm:    ['test-vllm',   'result-vllm'],
+  n8n:     ['test-n8n',    'result-n8n'],
+};
+
+async function testConn(service) {
+  const [btnId, resId] = SERVICE_ELS[service] || [`test-${service}`, `result-${service}`];
+  const btn = document.getElementById(btnId);
+  const res = document.getElementById(resId);
+  if (!btn || !res) return;
+
+  btn.classList.add('testing');
+  btn.disabled = true;
+  res.className = 'test-result show testing';
+  res.textContent = 'Testing…';
+
+  let payload = { service };
+
+  if (service === 'bitcoin') {
+    const torMode = _isTorMode('bitcoin');
+    const noPort  = document.getElementById('btc-noport')?.checked;
+    payload = { service,
+      scheme:      document.getElementById('btc-scheme').value,
+      host:        document.getElementById('btc-host').value,
+      port:        noPort ? null : (+document.getElementById('btc-port').value || null),
+      user:        document.getElementById('btc-user').value,
+      password:    document.getElementById('btc-pass').value,
+      use_tor:     torMode,
+      socks5_proxy: document.getElementById('btc-socks5')?.value || 'socks5://127.0.0.1:9050',
+    };
+  } else if (service === 'electrs') {
+    const esploraMode = _isElecEsploraMode();
+    if (_isTorMode('electrs')) {
+      payload = { service,
+        use_tor:      true,
+        scheme:       'http',
+        host:         document.getElementById('elec-onion').value,
+        port:         +document.getElementById('elec-tor-port').value,
+        socks5_proxy: document.getElementById('elec-socks5').value,
+        api_prefix:   '',
+      };
+    } else {
+      const host = document.getElementById('elec-host').value;
+      payload = { service,
+        scheme:     document.getElementById('elec-scheme').value,
+        host,
+        port:       +document.getElementById('elec-port').value,
+        api_prefix: esploraMode ? '/api' : '',
+        use_tor:    esploraMode && host.endsWith('.onion'),
+        socks5_proxy: document.getElementById('elec-socks5')?.value || 'socks5://127.0.0.1:9050',
+      };
+    }
+  } else if (service === 'mempool') {
+    const torMode = _isTorMode('mempool');
+    payload = { service,
+      base_url:    document.getElementById('mempool-url').value,
+      use_tor:     torMode,
+      socks5_proxy: document.getElementById('mempool-socks5')?.value || 'socks5://127.0.0.1:9050',
+    };
+  } else if (service === 'lnbits') {
+    const noPort = document.getElementById('ln-noport')?.checked;
+    payload = { service,
+      scheme:  document.getElementById('ln-scheme').value,
+      host:    document.getElementById('ln-host').value,
+      port:    noPort ? null : (+document.getElementById('ln-port').value || null),
+      api_key: document.getElementById('ln-apikey').value,
+    };
+  } else if (service === 'vllm') {
+    payload = { service,
+      base_url: document.getElementById('vllm-url').value,
+      model:    document.getElementById('vllm-model').value,
+      api_key:  document.getElementById('vllm-apikey').value,
+    };
+  } else if (service === 'n8n') {
+    payload = { service,
+      base_url:    document.getElementById('n8n-base-url')?.value || '',
+      api_key:     document.getElementById('n8n-apikey')?.value  || '',
+      webhook_url: document.getElementById('n8n-url')?.value     || '',
+    };
+  }
+
+  try {
+    const r = await fetch('/dashboard/setup/test', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    });
+    const data = await r.json();
+    // Issue 1 fix: set class directly, never use inline style
+    res.className = `test-result show ${data.ok ? 'ok' : 'fail'}`;
+    res.textContent = `${data.ok ? '✔' : '✖'} ${data.detail}`;
+    testedOk[service] = data.ok ? true : false; // true=tested-ok, false=tested-fail (overrides 'prev')
+  } catch (e) {
+    res.className = 'test-result show fail';
+    res.textContent = `✖ Network error: ${e.message}`;
+    testedOk[service] = false;
+  }
+
+  btn.classList.remove('testing');
+  btn.disabled = false;
+}
+
+// ── Access step validation ────────────────────────────────────────
+function validateAccessAndNext() {
+  const p1 = document.getElementById('dash-pass').value;
+  const p2 = document.getElementById('dash-pass2').value;
+  const mm = document.getElementById('pass-mismatch');
+  if (p1 && p1 !== p2) {
+    mm.style.display = 'block';
+    return;
+  }
+  mm.style.display = 'none';
+  goStep(8);
+}
+
+// ── Build review summary ──────────────────────────────────────────
+function buildSummary() {
+  const btcTor      = _isTorMode('bitcoin');
+  const elecTor     = _isTorMode('electrs');
+  const elecEsplora = _isElecEsploraMode();
+  const mempTor     = _isTorMode('mempool');
+  const btcNoPort   = document.getElementById('btc-noport')?.checked;
+  const lnNoPort    = document.getElementById('ln-noport')?.checked;
+
+  const btcHost = document.getElementById('btc-host').value;
+  const btcPort = document.getElementById('btc-port').value;
+  const btcVal  = btcNoPort
+    ? `${document.getElementById('btc-scheme').value}://${btcHost}${btcTor ? ' (Tor)' : ''}`
+    : `${document.getElementById('btc-scheme').value}://${btcHost}:${btcPort}${btcTor ? ' (Tor)' : ''}`;
+
+  const elecVal = elecTor
+    ? `tor://${document.getElementById('elec-onion').value}:${document.getElementById('elec-tor-port').value}`
+    : elecEsplora
+      ? `esplora://${document.getElementById('elec-host').value}:${document.getElementById('elec-port').value} (/api prefix)`
+      : `${document.getElementById('elec-scheme').value}://${document.getElementById('elec-host').value}:${document.getElementById('elec-port').value}`;
+
+  const mempUrl = document.getElementById('mempool-url').value || 'https://mempool.space';
+
+  const lnHost = document.getElementById('ln-host').value;
+  const lnPort = document.getElementById('ln-port').value;
+  const lnVal  = lnNoPort
+    ? `${document.getElementById('ln-scheme').value}://${lnHost}`
+    : `${document.getElementById('ln-scheme').value}://${lnHost}:${lnPort}`;
+
+  const vllmKey    = document.getElementById('vllm-apikey').value;
+  const n8nBaseUrl = document.getElementById('n8n-base-url')?.value || '';
+  const n8nWebhook = document.getElementById('n8n-url')?.value || '';
+  const n8nApiKey  = document.getElementById('n8n-apikey')?.value || '';
+
+  // Icon helper: true=tested, 'prev'=prev configured, false/undefined=unconfigured
+  function _icon(svc) {
+    if (testedOk[svc] === true) return { sym: '✔', cls: '' };
+    if (testedOk[svc] === 'prev') return { sym: '◎', cls: 'prev' };
+    return { sym: '○', cls: 'skip' };
+  }
+
+  const rows = [
+    { ..._icon('bitcoin'), label: 'Bitcoin Node', val: btcVal },
+    { ..._icon('electrs'), label: `Electrs${elecTor ? ' (Tor)' : ''}`, val: elecVal },
+    { ..._icon('mempool'), label: `Mempool${mempTor ? ' (Tor)' : ''}`, val: mempUrl },
+    { ..._icon('lnbits'),  label: 'LNbits', val: lnVal },
+    { ..._icon('vllm'),    label: 'AI Model',
+      val: `${document.getElementById('vllm-url').value} · ${document.getElementById('vllm-model').value}${vllmKey ? ' · key ✔' : ''}` },
+    { ...((n8nBaseUrl || n8nWebhook) ? _icon('n8n') : { sym: '—', cls: 'skip' }),
+      label: 'n8n',
+      val: n8nBaseUrl ? `${n8nBaseUrl}${n8nApiKey ? ' · key ✔' : ''}` : (n8nWebhook || 'skipped') },
+    { sym: '✔', cls: '', label: 'Dashboard User', val: document.getElementById('dash-user').value || 'admin' },
+  ];
+
+  document.getElementById('config-summary').innerHTML = rows.map(r => `
+    <div class="summary-row">
+      <span class="sicon ${r.cls}">${r.sym}</span>
+      <span class="slabel">${r.label}</span>
+      <span class="sval">${r.val}</span>
+    </div>`).join('');
+}
+
+// ── Save config ───────────────────────────────────────────────────
+async function saveConfig() {
+  const btn = document.getElementById('btn-save');
+  btn.disabled = true;
+  btn.textContent = 'SAVING…';
+
+  const p1          = document.getElementById('dash-pass').value;
+  const elecTor     = _isTorMode('electrs');
+  const elecEsplora = _isElecEsploraMode();
+  const btcTor      = _isTorMode('bitcoin');
+  const mempTor  = _isTorMode('mempool');
+  const btcNoPort = document.getElementById('btc-noport')?.checked;
+  const lnNoPort  = document.getElementById('ln-noport')?.checked;
+
+  // Resolve the best SOCKS5 proxy value across services
+  const socks5 = document.getElementById('elec-socks5')?.value
+    || document.getElementById('btc-socks5')?.value
+    || document.getElementById('mempool-socks5')?.value
+    || 'socks5://127.0.0.1:9050';
+
+  const payload = {
+    bitcoind_scheme:   document.getElementById('btc-scheme').value,
+    bitcoind_host:     document.getElementById('btc-host').value,
+    bitcoind_port:     btcNoPort ? null : (+document.getElementById('btc-port').value || null),
+    bitcoind_no_port:  btcNoPort,
+    bitcoind_user:     document.getElementById('btc-user').value,
+    bitcoind_pass:     document.getElementById('btc-pass').value,
+    bitcoind_use_tor:  btcTor,
+    socks5_proxy:      socks5,
+
+    electrs_scheme:     elecTor ? 'http' : document.getElementById('elec-scheme').value,
+    electrs_host:       elecTor ? document.getElementById('elec-onion').value : document.getElementById('elec-host').value,
+    electrs_port:       elecTor ? +document.getElementById('elec-tor-port').value : +document.getElementById('elec-port').value,
+    electrs_use_tor:    elecTor || (elecEsplora && (document.getElementById('elec-host').value || '').endsWith('.onion')),
+    electrs_api_prefix: elecEsplora ? '/api' : '',
+    tor_socks_proxy:    socks5,
+
+    mempool_base_url: document.getElementById('mempool-url')?.value || 'https://mempool.space',
+    mempool_use_tor:  mempTor,
+
+    lnbits_scheme:    document.getElementById('ln-scheme').value,
+    lnbits_host:      document.getElementById('ln-host').value,
+    lnbits_port:      lnNoPort ? null : (+document.getElementById('ln-port').value || null),
+    lnbits_no_port:   lnNoPort,
+    lnbits_api_key:   document.getElementById('ln-apikey').value,
+    lnbits_wallet_id: document.getElementById('ln-walletid').value,
+
+    vllm_base_url: document.getElementById('vllm-url').value,
+    vllm_model:    document.getElementById('vllm-model').value,
+    vllm_api_key:  document.getElementById('vllm-apikey').value,
+
+    n8n_base_url:       document.getElementById('n8n-base-url')?.value || '',
+    n8n_api_key:        document.getElementById('n8n-apikey')?.value   || '',
+    n8n_webhook_url:    document.getElementById('n8n-url')?.value      || '',
+    n8n_webhook_secret: document.getElementById('n8n-secret')?.value   || '',
+
+    dashboard_user:     document.getElementById('dash-user').value || 'admin',
+    dashboard_password: p1 || undefined,
+  };
+
+  try {
+    const r = await fetch('/dashboard/setup/save', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    });
+    const data = await r.json();
+    if (data.ok) {
+      btn.textContent = '✔ SAVED — REDIRECTING…';
+      btn.style.borderColor = 'var(--green)';
+      btn.style.color = 'var(--green)';
+      setTimeout(() => { window.location.href = '/dashboard/login'; }, 1200);
+    } else {
+      throw new Error(data.detail);
+    }
+  } catch (e) {
+    const errEl = document.getElementById('save-error');
+    errEl.textContent = `✖ Save failed: ${e.message}`;
+    errEl.style.display = 'block';
+    btn.disabled = false;
+    btn.textContent = '▶ SAVE & LAUNCH FALCONER';
+  }
+}
+
+// ── Particle background ───────────────────────────────────────────
+(function(){
+  const canvas = document.getElementById('bg');
+  const ctx = canvas.getContext('2d');
+  let W, H, particles;
+  function resize(){ W = canvas.width = window.innerWidth; H = canvas.height = window.innerHeight; }
+  function mkP(){ return { x:Math.random()*W, y:Math.random()*H,
+    vx:(Math.random()-.5)*.2, vy:(Math.random()-.5)*.15,
+    r:Math.random()*1.5+.3, a:Math.random(), gold:Math.random()>.7 }; }
+  function init(){ resize(); particles = Array.from({length:90},mkP); }
+  function draw(){
+    ctx.clearRect(0,0,W,H);
+    for(let i=0;i<particles.length;i++){
+      for(let j=i+1;j<particles.length;j++){
+        const dx=particles[i].x-particles[j].x, dy=particles[i].y-particles[j].y;
+        const d=Math.sqrt(dx*dx+dy*dy);
+        if(d<100){ const a=(1-d/100)*.15;
+          ctx.strokeStyle=`rgba(${particles[i].gold?'245,166,35':'58,165,245'},${a})`;
+          ctx.lineWidth=.5; ctx.beginPath();
+          ctx.moveTo(particles[i].x,particles[i].y); ctx.lineTo(particles[j].x,particles[j].y); ctx.stroke(); }
+      }
+    }
+    for(const p of particles){
+      ctx.fillStyle=`rgba(${p.gold?'245,166,35':'58,165,245'},${p.a})`;
+      ctx.beginPath(); ctx.arc(p.x,p.y,p.r,0,Math.PI*2); ctx.fill();
+      p.x+=p.vx; p.y+=p.vy;
+      if(p.x<-5)p.x=W+5; if(p.x>W+5)p.x=-5;
+      if(p.y<-5)p.y=H+5; if(p.y>H+5)p.y=-5;
+    }
+    requestAnimationFrame(draw);
+  }
+  window.addEventListener('resize', resize);
+  init(); draw();
+})();
+</script>
+</body>
+</html>

@@ -1,6 +1,7 @@
 """Bitcoin Knots RPC adapter for Falconer."""
 
 import json
+import os
 from typing import Any, Dict, List, Optional
 
 import httpx
@@ -34,7 +35,23 @@ class BitcoinAdapter:
         self.config = config
         self.base_url = config.bitcoind_url
         self.auth = (config.bitcoind_rpc_user, config.bitcoind_rpc_pass)
-        self.client = httpx.Client(base_url=self.base_url, auth=self.auth, timeout=30.0)
+
+        use_tor = getattr(config, "bitcoind_use_tor", False)
+        tor_proxy = getattr(config, "tor_socks_proxy", None) or os.environ.get(
+            "TOR_SOCKS_PROXY", "socks5h://127.0.0.1:9050"
+        )
+
+        client_kwargs: Dict[str, Any] = {
+            "base_url": self.base_url,
+            "auth": self.auth,
+            "timeout": 30.0,
+            "verify": False,
+            "follow_redirects": True,
+        }
+        if use_tor:
+            client_kwargs["proxy"] = tor_proxy
+
+        self.client = httpx.Client(**client_kwargs)
 
     @retry_on_network_error(max_attempts=3, base_delay=2.0)
     def _make_rpc_call(

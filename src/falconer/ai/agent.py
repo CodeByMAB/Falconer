@@ -50,13 +50,10 @@ class AIAgent:
             config: Falconer configuration
         """
         self.config = config
-<<<<<<< HEAD
-        self.vllm_model = getattr(config, "vllm_model", "llama3.1:8b")
-        self.vllm_base_url = getattr(config, "vllm_base_url", "http://localhost:8000/v1")
-=======
+        self.vllm_model = config.vllm_model
+        self.vllm_base_url = config.vllm_base_url
         self.ollama_model = config.ollama_model
         self.ollama_host = config.ollama_host
->>>>>>> b1a116d3a98b001a8622efcbb26f8c7486c0b6b6
         
         # Initialize components
         self.decision_engine = DecisionEngine(config)

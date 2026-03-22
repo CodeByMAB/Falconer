@@ -1,5 +1,6 @@
 """Electrs REST API adapter for Falconer."""
 
+import os
 from typing import Any, Dict, List, Optional
 
 import httpx
@@ -24,7 +25,23 @@ class ElectrsAdapter:
         """
         self.config = config
         self.base_url = config.electrs_url
-        self.client = httpx.Client(base_url=self.base_url, timeout=30.0)
+        self.api_prefix: str = getattr(config, "electrs_api_prefix", "")
+
+        use_tor = getattr(config, "electrs_use_tor", False)
+        tor_proxy = getattr(config, "tor_socks_proxy", None) or os.environ.get(
+            "TOR_SOCKS_PROXY", "socks5h://127.0.0.1:9050"
+        )
+
+        client_kwargs: Dict[str, Any] = {
+            "base_url": self.base_url,
+            "timeout": 30.0,
+            "verify": False,
+            "follow_redirects": True,
+        }
+        if use_tor:
+            client_kwargs["proxy"] = tor_proxy
+
+        self.client = httpx.Client(**client_kwargs)
 
     @retry_on_network_error(max_attempts=3, base_delay=2.0)
     def _make_request(self, method: str, endpoint: str, **kwargs) -> Any:
@@ -41,11 +58,21 @@ class ElectrsAdapter:
         Raises:
             Exception: If request fails
         """
+        full_endpoint = f"{self.api_prefix}{endpoint}"
         try:
-            response = self.client.request(method, endpoint, **kwargs)
+            response = self.client.request(method, full_endpoint, **kwargs)
             response.raise_for_status()
             return response.json()
 
+        except httpx.RemoteProtocolError:
+            port = getattr(self.config, "electrs_port", "?")
+            logger.error("Electrs protocol mismatch", endpoint=endpoint, port=port)
+            raise ElectrsAdapterError(
+                f"Protocol mismatch on {endpoint} — port {port} appears to be "
+                "an Electrum TCP port (50001/50002), not the HTTP REST API. "
+                "Re-run the Setup Wizard and enter the REST API .onion address from "
+                "Start9 → Services → Electrs → Interfaces."
+            )
         except httpx.HTTPError as e:
             logger.error("Electrs API HTTP error", endpoint=endpoint, error=str(e))
             raise ElectrsAdapterError(f"HTTP error calling Electrs API {endpoint}: {e}")
@@ -171,9 +198,16 @@ class ElectrsAdapter:
     def get_fee_estimates(self) -> Dict[str, float]:
         """Get fee estimates.
 
-        Returns:
-            Fee estimates for different confirmation targets
+        In direct Electrs mode returns a dict keyed by block target (e.g. {"1": 20, "6": 5}).
+        In Esplora/Mempool mode queries /api/v1/fees/recommended and converts to the same shape.
         """
+        if self.api_prefix == "/api":
+            data = self._make_request("GET", "/v1/fees/recommended")
+            return {
+                "1": float(data.get("fastestFee", 1)),
+                "3": float(data.get("halfHourFee", 1)),
+                "6": float(data.get("hourFee", 1)),
+            }
         return self._make_request("GET", "/fee-estimates")
 
     def broadcast_transaction(self, hexstring: str) -> str:

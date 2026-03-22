@@ -54,6 +54,8 @@ class LNbitsAdapter:
             base_url=self.base_url,
             headers={"X-Api-Key": self.api_key, "Content-Type": "application/json"},
             timeout=30.0,
+            verify=False,
+            follow_redirects=True,
         )
 
     @retry_on_network_error(max_attempts=3, base_delay=2.0)
@@ -89,7 +91,7 @@ class LNbitsAdapter:
         Returns:
             Wallet balance information
         """
-        return self._make_request("GET", f"/api/v1/wallet/{self.wallet_id}")
+        return self._make_request("GET", "/api/v1/wallet")
 
     def create_invoice(
         self, amount: int, description: Optional[str] = None

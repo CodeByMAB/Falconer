@@ -1,0 +1,463 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>FALCONER — Command Interface</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;600;700;900&family=Rajdhani:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg:           #04080f;
+      --surface:      #080e1a;
+      --card-bg:      rgba(10, 18, 35, 0.85);
+      --border:       rgba(245, 166, 35, 0.25);
+      --border-hover: rgba(245, 166, 35, 0.6);
+      --gold:         #f5a623;
+      --gold-dim:     #c47d0e;
+      --gold-glow:    rgba(245, 166, 35, 0.4);
+      --green:        #2ecc8a;
+      --blue:         #3aa5f5;
+      --text:         #e8edf5;
+      --text-dim:     #7a8fa6;
+      --red:          #e74c5a;
+      --scan-line:    rgba(245, 166, 35, 0.03);
+    }
+
+    html, body {
+      width: 100%; height: 100%;
+      background: var(--bg);
+      color: var(--text);
+      font-family: 'Rajdhani', sans-serif;
+      overflow: hidden;
+    }
+
+    /* ── Particle canvas ───────────────────────────────────────────── */
+    #canvas {
+      position: fixed;
+      inset: 0;
+      z-index: 0;
+      pointer-events: none;
+    }
+
+    /* ── Scanline overlay ──────────────────────────────────────────── */
+    .scanlines {
+      position: fixed;
+      inset: 0;
+      z-index: 1;
+      pointer-events: none;
+      background: repeating-linear-gradient(
+        0deg,
+        transparent,
+        transparent 2px,
+        var(--scan-line) 2px,
+        var(--scan-line) 4px
+      );
+    }
+
+    /* ── Mountain silhouette at bottom ────────────────────────────── */
+    .mountains {
+      position: fixed;
+      bottom: 0; left: 0; right: 0;
+      z-index: 2;
+      pointer-events: none;
+      opacity: 0.35;
+    }
+
+    /* ── Main layout ───────────────────────────────────────────────── */
+    .login-wrap {
+      position: relative;
+      z-index: 10;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      min-height: 100vh;
+      padding: 2rem;
+      gap: 1.5rem;
+    }
+
+    /* ── Falcon hero ───────────────────────────────────────────────── */
+    .falcon-hero-wrap {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 0.5rem;
+      animation: descend 1.2s cubic-bezier(0.22, 1, 0.36, 1) both;
+    }
+
+    @keyframes descend {
+      from { opacity: 0; transform: translateY(-40px) scale(0.85); }
+      to   { opacity: 1; transform: translateY(0)   scale(1); }
+    }
+
+    .falcon-svg {
+      width: 90px; height: 110px;
+      color: var(--gold);
+      filter: drop-shadow(0 0 18px var(--gold-glow))
+              drop-shadow(0 0 40px rgba(245, 166, 35, 0.2));
+      animation: falcon-pulse 3s ease-in-out infinite;
+    }
+
+    @keyframes falcon-pulse {
+      0%, 100% { filter: drop-shadow(0 0 18px var(--gold-glow)) drop-shadow(0 0 40px rgba(245,166,35,0.2)); }
+      50%       { filter: drop-shadow(0 0 30px rgba(245,166,35,0.8)) drop-shadow(0 0 60px rgba(245,166,35,0.4)); }
+    }
+
+    /* ── Title ─────────────────────────────────────────────────────── */
+    .title-block {
+      text-align: center;
+      animation: descend 1.4s cubic-bezier(0.22, 1, 0.36, 1) both;
+      animation-delay: 0.1s;
+    }
+
+    .title-main {
+      font-family: 'Orbitron', monospace;
+      font-size: clamp(2.4rem, 7vw, 4rem);
+      font-weight: 900;
+      letter-spacing: 0.35em;
+      color: var(--gold);
+      text-shadow: 0 0 20px var(--gold-glow), 0 0 60px rgba(245,166,35,0.2);
+      line-height: 1;
+    }
+
+    .title-sub {
+      font-family: 'Rajdhani', sans-serif;
+      font-size: 0.85rem;
+      font-weight: 500;
+      letter-spacing: 0.45em;
+      color: var(--text-dim);
+      margin-top: 0.4rem;
+      text-transform: uppercase;
+    }
+
+    .title-divider {
+      width: 100%;
+      height: 1px;
+      background: linear-gradient(90deg, transparent, var(--gold), transparent);
+      margin: 0.8rem auto;
+      opacity: 0.5;
+    }
+
+    /* ── Login card ─────────────────────────────────────────────────── */
+    .card {
+      width: 100%;
+      max-width: 400px;
+      background: var(--card-bg);
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      padding: 2.2rem 2.4rem;
+      backdrop-filter: blur(24px);
+      -webkit-backdrop-filter: blur(24px);
+      box-shadow:
+        0 0 0 1px rgba(245,166,35,0.05),
+        0 8px 32px rgba(0,0,0,0.6),
+        inset 0 1px 0 rgba(245,166,35,0.1);
+      animation: rise 1.3s cubic-bezier(0.22, 1, 0.36, 1) both;
+      animation-delay: 0.25s;
+    }
+
+    @keyframes rise {
+      from { opacity: 0; transform: translateY(30px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+
+    .card-header {
+      font-family: 'Orbitron', monospace;
+      font-size: 0.7rem;
+      font-weight: 600;
+      letter-spacing: 0.3em;
+      color: var(--text-dim);
+      text-align: center;
+      margin-bottom: 1.8rem;
+      text-transform: uppercase;
+    }
+
+    /* ── Form ───────────────────────────────────────────────────────── */
+    .field {
+      margin-bottom: 1.2rem;
+    }
+
+    .field label {
+      display: block;
+      font-size: 0.72rem;
+      font-weight: 600;
+      letter-spacing: 0.2em;
+      color: var(--text-dim);
+      text-transform: uppercase;
+      margin-bottom: 0.45rem;
+    }
+
+    .field input {
+      width: 100%;
+      background: rgba(4, 8, 15, 0.7);
+      border: 1px solid var(--border);
+      border-radius: 2px;
+      padding: 0.7rem 1rem;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.9rem;
+      color: var(--text);
+      outline: none;
+      transition: border-color 0.25s, box-shadow 0.25s;
+    }
+
+    .field input:focus {
+      border-color: var(--gold);
+      box-shadow: 0 0 0 2px var(--gold-glow), inset 0 0 12px rgba(245,166,35,0.05);
+    }
+
+    .field input::placeholder { color: var(--text-dim); opacity: 0.6; }
+
+    /* ── Error ──────────────────────────────────────────────────────── */
+    .error-msg {
+      background: rgba(231, 76, 90, 0.12);
+      border: 1px solid rgba(231, 76, 90, 0.4);
+      border-radius: 2px;
+      padding: 0.6rem 0.9rem;
+      font-size: 0.82rem;
+      color: var(--red);
+      margin-bottom: 1rem;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+
+    .error-msg::before { content: '⚠'; font-size: 0.9rem; }
+
+    /* ── Submit button ──────────────────────────────────────────────── */
+    .btn-auth {
+      width: 100%;
+      margin-top: 0.4rem;
+      padding: 0.85rem;
+      background: transparent;
+      border: 1px solid var(--gold);
+      border-radius: 2px;
+      font-family: 'Orbitron', monospace;
+      font-size: 0.78rem;
+      font-weight: 700;
+      letter-spacing: 0.35em;
+      color: var(--gold);
+      cursor: pointer;
+      position: relative;
+      overflow: hidden;
+      transition: color 0.25s, box-shadow 0.25s, background 0.25s;
+    }
+
+    .btn-auth::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: var(--gold);
+      transform: translateX(-101%);
+      transition: transform 0.3s cubic-bezier(0.22, 1, 0.36, 1);
+      z-index: 0;
+    }
+
+    .btn-auth:hover::before { transform: translateX(0); }
+    .btn-auth:hover { color: var(--bg); box-shadow: 0 0 20px var(--gold-glow); }
+
+    .btn-auth span { position: relative; z-index: 1; }
+
+    .btn-auth:active { transform: scale(0.98); }
+
+    /* ── Footer ─────────────────────────────────────────────────────── */
+    .login-footer {
+      font-size: 0.72rem;
+      letter-spacing: 0.2em;
+      color: var(--text-dim);
+      opacity: 0.5;
+      animation: rise 1.5s cubic-bezier(0.22, 1, 0.36, 1) both;
+      animation-delay: 0.4s;
+    }
+
+    /* ── Blinking cursor on title ───────────────────────────────────── */
+    .cursor-blink {
+      display: inline-block;
+      width: 3px;
+      height: 1em;
+      background: var(--gold);
+      margin-left: 4px;
+      vertical-align: middle;
+      animation: blink 1s step-end infinite;
+    }
+    @keyframes blink { 0%,100% { opacity: 1; } 50% { opacity: 0; } }
+
+    /* ── Corner decorations ─────────────────────────────────────────── */
+    .corner { position: absolute; width: 16px; height: 16px; }
+    .corner-tl { top: 0; left: 0; border-top: 2px solid var(--gold); border-left: 2px solid var(--gold); }
+    .corner-tr { top: 0; right: 0; border-top: 2px solid var(--gold); border-right: 2px solid var(--gold); }
+    .corner-bl { bottom: 0; left: 0; border-bottom: 2px solid var(--gold); border-left: 2px solid var(--gold); }
+    .corner-br { bottom: 0; right: 0; border-bottom: 2px solid var(--gold); border-right: 2px solid var(--gold); }
+  </style>
+</head>
+<body>
+
+<canvas id="canvas"></canvas>
+<div class="scanlines"></div>
+
+<!-- Mountain silhouette -->
+<svg class="mountains" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1440 260" preserveAspectRatio="none">
+  <path d="M0,260 L0,180 L80,130 L160,160 L260,80 L360,130 L440,90 L520,140 L620,50 L700,110 L780,70 L860,120 L940,40 L1020,100 L1100,60 L1180,120 L1260,80 L1340,140 L1440,100 L1440,260 Z" fill="#0a1a2e"/>
+  <path d="M0,260 L0,200 L100,165 L200,185 L310,140 L420,165 L500,150 L580,170 L680,125 L760,155 L840,135 L920,158 L1000,120 L1080,148 L1160,130 L1260,155 L1360,138 L1440,155 L1440,260 Z" fill="#0d2035"/>
+</svg>
+
+<div class="login-wrap">
+
+  <!-- Falcon hero -->
+  <div class="falcon-hero-wrap">
+    <svg class="falcon-svg" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 240 280" fill="currentColor">
+      <!-- Body -->
+      <path d="M120 18 C115 26 108 40 104 58 C100 76 99 96 100 116
+               C101 132 103 144 106 154 C109 162 113 167 120 169
+               C127 167 131 162 134 154 C137 144 139 132 140 116
+               C141 96 140 76 136 58 C132 40 125 26 120 18 Z"/>
+      <!-- Left wing primary -->
+      <path d="M105 78 C91 70 72 59 52 46 C34 34 18 25 6 19
+               C18 31 35 45 54 60 C69 73 87 82 102 89 Z"/>
+      <!-- Left wing secondary (depth) -->
+      <path d="M103 94 C88 86 68 74 47 61 C30 49 14 40 2 34
+               C14 47 32 61 52 75 C67 86 86 95 101 101 Z" opacity="0.65"/>
+      <!-- Right wing primary -->
+      <path d="M135 78 C149 70 168 59 188 46 C206 34 222 25 234 19
+               C222 31 205 45 186 60 C171 73 153 82 138 89 Z"/>
+      <!-- Right wing secondary (depth) -->
+      <path d="M137 94 C152 86 172 74 193 61 C210 49 226 40 238 34
+               C226 47 208 61 188 75 C173 86 154 95 139 101 Z" opacity="0.65"/>
+      <!-- Head -->
+      <ellipse cx="120" cy="13" rx="12" ry="14"/>
+      <!-- Beak hook -->
+      <path d="M115 23 Q120 31 125 23 Q125 28 120 33 Q115 28 115 23 Z"/>
+      <!-- Tail fan -->
+      <path d="M108 163 C105 175 104 187 106 198 C108 206 113 212 120 214
+               C127 212 132 206 134 198 C136 187 135 175 132 163 Z"/>
+    </svg>
+  </div>
+
+  <!-- Title -->
+  <div class="title-block">
+    <div class="title-main">FALCONER<span class="cursor-blink"></span></div>
+    <div class="title-divider"></div>
+    <div class="title-sub">Bitcoin&#8209;Native AI Agent &nbsp;·&nbsp; Command Interface</div>
+  </div>
+
+  <!-- Login card -->
+  <div class="card" style="position:relative;">
+    <div class="corner corner-tl"></div>
+    <div class="corner corner-tr"></div>
+    <div class="corner corner-bl"></div>
+    <div class="corner corner-br"></div>
+
+    <div class="card-header">&#9632; AUTHENTICATE &#9632;</div>
+
+    {% if error %}
+    <div class="error-msg">{{ error }}</div>
+    {% endif %}
+
+    <form method="post" action="/dashboard/login" autocomplete="off">
+      <div class="field">
+        <label for="username">OPERATOR ID</label>
+        <input id="username" name="username" type="text"
+               placeholder="enter username" autofocus required />
+      </div>
+      <div class="field">
+        <label for="password">ACCESS CODE</label>
+        <input id="password" name="password" type="password"
+               placeholder="••••••••••" required />
+      </div>
+      <button class="btn-auth" type="submit"><span>&#9656; AUTHENTICATE</span></button>
+    </form>
+  </div>
+
+  <!-- Footer -->
+  <div class="login-footer">FALCONER v0.2.0 &nbsp;·&nbsp; CODEBYMAB &nbsp;·&nbsp; MIT LICENSE</div>
+
+</div>
+
+<script>
+  // ── Animated particle / constellation field ─────────────────────────
+  (function () {
+    const canvas = document.getElementById('canvas');
+    const ctx    = canvas.getContext('2d');
+    const GOLD   = 'rgba(245,166,35,';
+    const BLUE   = 'rgba(58,165,245,';
+    const NUM    = 130;
+    const MAX_DIST = 120;
+
+    let W, H, particles;
+
+    function resize() {
+      W = canvas.width  = window.innerWidth;
+      H = canvas.height = window.innerHeight;
+    }
+
+    function mkParticle() {
+      return {
+        x:   Math.random() * W,
+        y:   Math.random() * H,
+        vx:  (Math.random() - 0.5) * 0.22,
+        vy:  (Math.random() - 0.5) * 0.18,
+        r:   Math.random() * 1.6 + 0.3,
+        a:   Math.random(),
+        gold: Math.random() > 0.75,
+      };
+    }
+
+    function init() {
+      resize();
+      particles = Array.from({length: NUM}, mkParticle);
+    }
+
+    function draw() {
+      ctx.clearRect(0, 0, W, H);
+
+      // Draw connections
+      for (let i = 0; i < particles.length; i++) {
+        for (let j = i + 1; j < particles.length; j++) {
+          const dx = particles[i].x - particles[j].x;
+          const dy = particles[i].y - particles[j].y;
+          const d  = Math.sqrt(dx*dx + dy*dy);
+          if (d < MAX_DIST) {
+            const alpha = (1 - d / MAX_DIST) * 0.18;
+            const c = (particles[i].gold || particles[j].gold) ? GOLD : BLUE;
+            ctx.strokeStyle = c + alpha + ')';
+            ctx.lineWidth   = 0.6;
+            ctx.beginPath();
+            ctx.moveTo(particles[i].x, particles[i].y);
+            ctx.lineTo(particles[j].x, particles[j].y);
+            ctx.stroke();
+          }
+        }
+      }
+
+      // Draw particles
+      for (const p of particles) {
+        const c = p.gold ? GOLD : BLUE;
+        ctx.fillStyle = c + p.a + ')';
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2);
+        ctx.fill();
+
+        // Move
+        p.x += p.vx;
+        p.y += p.vy;
+
+        // Wrap
+        if (p.x < -10) p.x = W + 10;
+        if (p.x > W + 10) p.x = -10;
+        if (p.y < -10) p.y = H + 10;
+        if (p.y > H + 10) p.y = -10;
+      }
+
+      requestAnimationFrame(draw);
+    }
+
+    window.addEventListener('resize', resize);
+    init();
+    draw();
+  })();
+</script>
+</body>
+</html>

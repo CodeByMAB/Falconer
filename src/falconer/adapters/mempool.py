@@ -20,33 +20,91 @@ def _env(name: str, default: Optional[str] = None) -> Optional[str]:
 
 class MempoolAdapter:
     """
-    Minimal client for a Mempool/Esplora-compatible API.
-    - Tries LAN first when MODE is 'auto' or 'lan'
-    - Falls back to Tor when MODE is 'auto' or 'tor'
-    - Does NOT call bitcoind.
+    Client for a Mempool/Esplora-compatible REST API.
+
+    Reads configuration from environment variables:
+      MEMPOOL_BASE_URL   — full base URL, e.g. https://mempool.space or http://host.onion
+      MEMPOOL_USE_TOR    — "true" / "1" to route via SOCKS5
+      TOR_SOCKS_PROXY    — SOCKS5 proxy URL, e.g. socks5h://127.0.0.1:9050
+
+    Legacy env vars (MEMPOOL_LAN_HOST_LOCAL, MEMPOOL_TOR_URL, MEMPOOL_MODE) are still
+    supported as fallback when MEMPOOL_BASE_URL is not set.
     """
 
     def __init__(self) -> None:
-        # Modes: auto | lan | tor
-        self.mode = _env("MEMPOOL_MODE", "auto").lower()
+        # Primary: new-style MEMPOOL_BASE_URL
+        self._base_url: Optional[str] = _env("MEMPOOL_BASE_URL")
 
-        # LAN endpoint (scheme + host[:port]). Port defaults to 80 if omitted.
-        lan_scheme = _env("MEMPOOL_LAN_SCHEME", "http")
-        lan_host = _env("MEMPOOL_LAN_HOST_LOCAL")  # .local hostname
-        lan_port = _env("MEMPOOL_LAN_PORT")  # may be None
-        if lan_host:
-            if lan_port:
-                self.lan_base = f"{lan_scheme}://{lan_host}:{lan_port}"
+        # Tor routing
+        use_tor_raw = _env("MEMPOOL_USE_TOR", "false")
+        self._use_tor: bool = str(use_tor_raw).lower() in ("true", "1", "yes")
+        self._tor_proxy: Optional[str] = _env("TOR_SOCKS_PROXY", _env("TOR_SOCKS_URL", "socks5h://127.0.0.1:9050"))
+
+        # Legacy: build base_url from old env vars when new-style not set
+        if not self._base_url:
+            self.mode = _env("MEMPOOL_MODE", "auto").lower()
+            lan_scheme = _env("MEMPOOL_LAN_SCHEME", "http")
+            lan_host = _env("MEMPOOL_LAN_HOST_LOCAL")
+            lan_port = _env("MEMPOOL_LAN_PORT")
+            tor_base = _env("MEMPOOL_TOR_URL")
+            if lan_host:
+                self._base_url = f"{lan_scheme}://{lan_host}:{lan_port}" if lan_port else f"{lan_scheme}://{lan_host}"
+            elif tor_base:
+                self._base_url = tor_base
+                self._use_tor = True
             else:
-                self.lan_base = f"{lan_scheme}://{lan_host}"
+                self._base_url = "https://mempool.space"
         else:
-            self.lan_base = None
+            self.mode = "tor" if self._use_tor else "custom"
 
-        # Tor endpoint (full URL incl. onion host, optional port)
-        self.tor_base = _env("MEMPOOL_TOR_URL")
+        # Auto-detect Tor from .onion hostname
+        if self._base_url and ".onion" in self._base_url:
+            self._use_tor = True
 
-        # SOCKS proxy for Tor (e.g. socks5h://127.0.0.1:9050)
-        self.tor_socks = _env("TOR_SOCKS_URL")
+    def _client_kwargs(self, timeout: int = 20) -> dict:
+        """Build httpx.Client kwargs with SSL bypass and optional Tor proxy."""
+        kw: dict = {"timeout": timeout, "verify": False, "follow_redirects": True}
+        if self._use_tor and self._tor_proxy:
+            kw["proxy"] = self._tor_proxy
+        return kw
+
+    def _url(self, path: str) -> str:
+        base = (self._base_url or "https://mempool.space").rstrip("/")
+        return f"{base}{path}"
+
+    # ── Sync methods (used by dashboard health check) ─────────────────────────
+
+    def get_fee_estimates(self) -> dict:
+        """GET /api/v1/fees/recommended → {fastestFee, halfHourFee, hourFee, ...}"""
+        url = self._url("/api/v1/fees/recommended")
+        try:
+            with httpx.Client(**self._client_kwargs()) as c:
+                r = c.get(url)
+                r.raise_for_status()
+                return r.json()
+        except httpx.HTTPError as e:
+            log.error("Mempool fee estimates HTTP error", url=url, error=str(e))
+            raise MempoolAdapterError(f"HTTP error fetching Mempool fee estimates: {e}")
+        except Exception as e:
+            log.error("Mempool fee estimates failed", url=url, error=str(e))
+            raise MempoolAdapterError(f"Mempool fee estimates failed: {e}")
+
+    def get_tip_height_sync(self) -> int:
+        """GET /api/blocks/tip/height → block height (sync version)."""
+        url = self._url("/api/blocks/tip/height")
+        try:
+            with httpx.Client(**self._client_kwargs()) as c:
+                r = c.get(url)
+                r.raise_for_status()
+                return int(r.text.strip())
+        except httpx.HTTPError as e:
+            log.error("Mempool tip height HTTP error", url=url, error=str(e))
+            raise MempoolAdapterError(f"HTTP error fetching Mempool tip height: {e}")
+        except Exception as e:
+            log.error("Mempool tip height failed", url=url, error=str(e))
+            raise MempoolAdapterError(f"Mempool tip height failed: {e}")
+
+    # ── Async methods (used by CLI / market analyzer) ─────────────────────────
 
     async def _get_json(
         self, client: httpx.AsyncClient, url: str
@@ -56,51 +114,23 @@ class MempoolAdapter:
         ct = r.headers.get("content-type", "")
         if "application/json" in ct:
             return r.json()
-        # Some endpoints (e.g. /api/blocks/tip/height) return plain text
         return r.text
 
     @retry_on_network_error(max_attempts=3, base_delay=2.0)
     async def tip_height(self) -> int:
         """
-        Query /api/blocks/tip/height and return an int.
-        Tries LAN first (if configured and mode allows), then Tor.
+        Async version for CLI / market_analyzer compatibility.
+        Queries /api/blocks/tip/height and returns an int.
         """
         path = "/api/blocks/tip/height"
-
-        # Try LAN
-        if self.mode in ("auto", "lan") and self.lan_base:
-            url = f"{self.lan_base.rstrip('/')}{path}"
-            try:
-                async with httpx.AsyncClient(timeout=20) as c:
-                    data = await self._get_json(c, url)
-                log.info("Mempool tip via LAN", extra={"url": url})
-                return int(data) if isinstance(data, str) else int(data)
-            except Exception as e:
-                log.warning(
-                    "Mempool LAN failed, will try Tor if allowed",
-                    extra={"error": str(e)},
-                )
-
-            if self.mode == "lan":
-                raise MempoolAdapterError(f"Mempool LAN unreachable: {url}")
-
-        # Try Tor
-        if self.mode in ("auto", "tor"):
-            if not self.tor_base:
-                raise MempoolAdapterError(
-                    "MEMPOOL_TOR_URL not set but mode requires Tor"
-                )
-            url = f"{self.tor_base.rstrip('/')}{path}"
-            proxies = None
-            if self.tor_socks:
-                proxies = {"http": self.tor_socks, "https": self.tor_socks}
-            async with httpx.AsyncClient(timeout=30, proxies=proxies) as c:
-                data = await self._get_json(c, url)
-            log.info("Mempool tip via Tor", extra={"url": url})
-            return int(data) if isinstance(data, str) else int(data)
-
-        raise MempoolAdapterError("Mempool unreachable (no LAN/Tor succeeded)")
+        url = self._url(path)
+        async_kwargs: dict = {"timeout": 30, "verify": False}
+        if self._use_tor and self._tor_proxy:
+            async_kwargs["proxy"] = self._tor_proxy
+        async with httpx.AsyncClient(**async_kwargs) as c:
+            data = await self._get_json(c, url)
+        log.info("Mempool tip height fetched", url=url)
+        return int(data) if isinstance(data, str) else int(data)
 
     def close(self) -> None:
-        # Placeholder for symmetry with other adapters
         pass

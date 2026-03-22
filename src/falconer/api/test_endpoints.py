@@ -5,7 +5,7 @@ from typing import Optional
 
 from fastapi import FastAPI, Request, HTTPException, Header, Depends
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, RedirectResponse
 from fastapi.security import APIKeyHeader
 import uvicorn
 
@@ -15,6 +15,7 @@ from ..logging import get_logger
 from ..adapters.bitcoind import BitcoinAdapter
 from ..adapters.electrs import ElectrsAdapter
 from ..adapters.mempool import MempoolAdapter
+from ..dashboard.router import create_dashboard_router
 
 logger = get_logger(__name__)
 
@@ -27,6 +28,15 @@ def create_api_app(config: Config) -> FastAPI:
         version=__version__,
     )
     app.state.config = config
+
+    # Mount the web dashboard
+    dashboard_router = create_dashboard_router(config)
+    app.include_router(dashboard_router)
+
+    # Redirect root to dashboard
+    @app.get("/")
+    async def root_redirect() -> RedirectResponse:
+        return RedirectResponse(url="/dashboard/", status_code=302)
 
     # Security and middleware setup
     app.add_middleware(
@@ -76,14 +86,30 @@ def create_api_app(config: Config) -> FastAPI:
         response.headers["X-Content-Type-Options"] = "nosniff"
         response.headers["X-Frame-Options"] = "DENY"
         response.headers["X-XSS-Protection"] = "1; mode=block"
-        response.headers["Content-Security-Policy"] = "default-src 'self'"
         response.headers["Referrer-Policy"] = "no-referrer"
-        response.headers["Strict-Transport-Security"] = "max-age=31536000; includeSubDomains"
+
+        is_dashboard = request.url.path.startswith("/dashboard") or request.url.path == "/"
+        if is_dashboard:
+            # Permissive CSP for the dashboard UI (local-use tool, not public web)
+            response.headers["Content-Security-Policy"] = (
+                "default-src 'self'; "
+                "script-src 'self' 'unsafe-inline'; "
+                "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; "
+                "font-src 'self' https://fonts.gstatic.com; "
+                "img-src 'self' data:; "
+                "connect-src 'self';"
+            )
+        else:
+            response.headers["Content-Security-Policy"] = "default-src 'self'"
+            response.headers["Strict-Transport-Security"] = "max-age=31536000; includeSubDomains"
         return response
 
     @app.exception_handler(HTTPException)
     async def http_exception_handler(request: Request, exc: HTTPException):
         """Handle HTTP exceptions with consistent error format."""
+        # Honour redirect responses raised by dependencies
+        if 300 <= exc.status_code < 400 and exc.headers and "Location" in exc.headers:
+            return RedirectResponse(url=exc.headers["Location"], status_code=exc.status_code)
         logger.error("HTTP Exception", error=str(exc.detail), status_code=exc.status_code)
         return JSONResponse(
             status_code=exc.status_code,
