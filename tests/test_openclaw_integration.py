@@ -6,6 +6,7 @@ from datetime import datetime
 from unittest.mock import Mock, patch, AsyncMock
 
 import pytest
+import requests
 from fastapi.testclient import TestClient
 
 from falconer.api.test_endpoints import create_api_app
@@ -112,19 +113,25 @@ class TestOpenClawAPIIntegration:
         """Test fee estimates endpoint."""
         with patch("falconer.api.test_endpoints.BitcoinAdapter") as mock_adapter_class:
             mock_adapter = Mock()
-            mock_adapter.estimate_fee_rates.return_value = {
-                "fast": 20,
-                "medium": 10,
-                "slow": 5,
-                "economical": 2,
-                "minimum": 1,
-            }
+
+            def _smart_fee(target: int):
+                # feerate in BTC/kvB; endpoint multiplies by 100_000 for sat/vB
+                rates = {
+                    1: 0.0002,
+                    3: 0.00015,
+                    6: 0.0001,
+                    12: 0.00005,
+                    24: 0.00002,
+                }
+                return {"feerate": rates.get(target, 0.0001), "blocks": target}
+
+            mock_adapter.estimate_smart_fee.side_effect = _smart_fee
             mock_adapter.close.return_value = None
             mock_adapter_class.return_value = mock_adapter
-            
+
             response = self.client.get(
-                "/api/bitcoin/fee-estimates", 
-                headers={"X-API-Key": "test-api-key-123"}
+                "/api/bitcoin/fee-estimates",
+                headers={"X-API-Key": "test-api-key-123"},
             )
             assert response.status_code == 200
             data = response.json()
@@ -244,19 +251,30 @@ class TestOpenClawAPIIntegration:
 
     def test_openclaw_disabled_allows_access(self):
         """Test that when OpenClaw is disabled, endpoints are accessible without API key."""
-        # Create config with OpenClaw disabled
         disabled_config = Config(
             openclaw_enabled=False,
             openclaw_api_key="test-api-key-123",
             env="test",
         )
-        
+
         disabled_app = create_api_app(disabled_config)
         disabled_client = TestClient(disabled_app)
-        
-        # Should work without API key when OpenClaw is disabled
-        response = disabled_client.get("/api/bitcoin/blockchain-info")
-        assert response.status_code == 400  # Will fail due to missing Bitcoin adapter, but not 401
+
+        with patch("falconer.api.test_endpoints.BitcoinAdapter") as mock_adapter_class:
+            mock_adapter = Mock()
+            mock_adapter.get_blockchain_info.return_value = {
+                "blocks": 1,
+                "headers": 1,
+                "chain": "main",
+                "difficulty": 1.0,
+                "size_on_disk": 1,
+                "pruned": False,
+            }
+            mock_adapter.close.return_value = None
+            mock_adapter_class.return_value = mock_adapter
+
+            response = disabled_client.get("/api/bitcoin/blockchain-info")
+            assert response.status_code == 200
 
     def test_security_headers(self):
         """Test that security headers are present in responses."""
@@ -269,9 +287,12 @@ class TestOpenClawAPIIntegration:
 
     def test_cors_headers(self):
         """Test that CORS headers are properly configured."""
-        response = self.client.get("/api/health")
+        response = self.client.get(
+            "/api/health",
+            headers={"Origin": "http://localhost:8000"},
+        )
         assert "access-control-allow-origin" in response.headers
-        assert response.headers["access-control-allow-origin"] == "*"
+        assert response.headers["access-control-allow-origin"] == "http://localhost:8000"
 
 
 class TestBitcoinMarketAnalyzerSkill:
@@ -281,17 +302,16 @@ class TestBitcoinMarketAnalyzerSkill:
         """Set up test fixtures."""
         import sys
         import os
-        
-        # Add the openclaw-skills directory to the path
-        sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "openclaw-skills"))
-        
-        from bitcoin_market_analyzer import BitcoinMarketAnalyzer
-        
-        self.analyzer = BitcoinMarketAnalyzer()
-        
-        # Mock environment variables
+
         os.environ["FALCONER_API_URL"] = "http://test-api:8000"
         os.environ["FALCONER_API_KEY"] = "test-key"
+
+        # Add the openclaw-skills directory to the path
+        sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "openclaw-skills"))
+
+        from bitcoin_market_analyzer import BitcoinMarketAnalyzer
+
+        self.analyzer = BitcoinMarketAnalyzer()
 
     def test_skill_initialization(self):
         """Test skill initialization."""

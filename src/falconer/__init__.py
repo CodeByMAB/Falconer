@@ -10,4 +10,6 @@ from .logging import setup_logging
 __all__ = ["Config", "setup_logging"]
 
 if __name__ == "__main__":
-    app(prog_name="falconer")
+    from .cli import main
+
+    main(prog_name="falconer")

@@ -160,13 +160,7 @@ class N8nAdapter:
             is_valid = hmac.compare_digest(signature, expected_signature)
             
             if not is_valid:
-                logger.warning(
-                    "Invalid webhook signature",
-                    extra={
-                        "provided_signature": signature,
-                        "expected_signature": expected_signature,
-                    }
-                )
+                logger.warning("Invalid webhook signature (verification failed)")
             
             return is_valid
             
@@ -175,7 +169,6 @@ class N8nAdapter:
                 "Error verifying webhook signature",
                 extra={
                     "error": str(e),
-                    "signature": signature,
                     "timestamp": timestamp,
                 }
             )

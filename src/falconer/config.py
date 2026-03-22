@@ -1,9 +1,12 @@
 """Configuration management for Falconer."""
 
-from typing import List, Optional
+import json
+from typing import List, Optional, Union
 
-from pydantic import Field, field_validator
+from pydantic import Field, field_validator, model_validator
 from pydantic_settings import BaseSettings
+
+from .exceptions import ConfigurationError
 
 
 class Config(BaseSettings):
@@ -58,7 +61,8 @@ class Config(BaseSettings):
     # Spending limits (overridable by policy file)
     max_daily_spend_sats: int = Field(default=100000)
     max_single_tx_sats: int = Field(default=50000)
-    allowed_destinations: List[str] = Field(default=[])
+    # Env may be a JSON array ([]) or comma-separated; Union avoids strict JSON-only parsing.
+    allowed_destinations: Union[str, List[str]] = Field(default_factory=list)
 
     # AI — vLLM (OpenAI-compatible API)
     vllm_model: str = Field(default="llama3.1:8b")
@@ -89,7 +93,7 @@ class Config(BaseSettings):
 
     # Webhook server
     webhook_server_enabled: bool = Field(default=True)
-    webhook_server_host: str = Field(default="0.0.0.0")
+    webhook_server_host: str = Field(default="127.0.0.1")
     webhook_server_port: int = Field(default=8080)
     webhook_server_reload: bool = Field(default=False)
 
@@ -117,16 +121,31 @@ class Config(BaseSettings):
         data = getattr(info, "data", {})
         if data and "max_daily_spend_sats" in data and v > data["max_daily_spend_sats"]:
             raise ValueError(
-                "max_single_tx_sats must be <= max_daily_spend_sats"
+                "max_single_tx_sats must be less than or equal to max_daily_spend_sats"
             )
         return v
 
     @field_validator("allowed_destinations", mode="before")
     @classmethod
     def parse_allowed_destinations(cls, v: object) -> List[str]:
+        if v is None:
+            return []
+        if isinstance(v, list):
+            return [str(x).strip() for x in v if str(x).strip()]
         if isinstance(v, str):
-            return [d.strip() for d in v.split(",") if d.strip()]
-        return list(v) if v else []
+            s = v.strip()
+            if not s:
+                return []
+            if s.startswith("["):
+                try:
+                    parsed = json.loads(s)
+                except json.JSONDecodeError:
+                    return []
+                if isinstance(parsed, list):
+                    return [str(x).strip() for x in parsed if str(x).strip()]
+                return []
+            return [d.strip() for d in s.split(",") if d.strip()]
+        return []
 
     @field_validator("funding_proposal_threshold_sats")
     @classmethod
@@ -163,11 +182,20 @@ class Config(BaseSettings):
             raise ValueError("webhook_server_port must be between 1 and 65535")
         return v
 
+    @model_validator(mode="after")
+    def reject_default_dashboard_password_in_prod(self) -> "Config":
+        if self.env.lower() in ("prod", "production") and self.dashboard_password == "falconer":
+            raise ConfigurationError(
+                "DASHBOARD_PASSWORD must be set to a non-default value when ENV is prod"
+            )
+        return self
+
     model_config = {
         "env_file": ".env",
         "env_file_encoding": "utf-8",
         "case_sensitive": False,
         "extra": "ignore",
+        "env_ignore_empty": True,
     }
 
     # ── Computed URL properties ───────────────────────────────────────
@@ -211,3 +239,15 @@ class Config(BaseSettings):
     @property
     def llm_model(self) -> str:
         return self.vllm_model
+
+
+def warn_if_default_dashboard_password(config: Config) -> None:
+    """Log when the dashboard still uses the default password."""
+    from .logging import get_logger
+
+    log = get_logger(__name__)
+    if config.dashboard_password == "falconer":
+        log.warning(
+            "Dashboard is using the default password from configuration. "
+            "Set DASHBOARD_PASSWORD to a strong secret before exposing the service."
+        )

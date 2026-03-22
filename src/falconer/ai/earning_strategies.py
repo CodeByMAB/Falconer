@@ -1,4 +1,9 @@
-"""AI-driven earning strategies for autonomous Bitcoin earning."""
+"""AI-driven earning strategies for autonomous Bitcoin earning.
+
+Successful strategy runs create a Lightning invoice; `earnings_sats` remains 0 until
+payment is verified (polling/webhook not implemented). See logs and `service_data`
+for pending-invoice details.
+"""
 
 import asyncio
 from datetime import datetime, timedelta
@@ -14,6 +19,10 @@ from ..adapters.bitcoind import BitcoinAdapter
 from ..adapters.electrs import ElectrsAdapter
 
 logger = get_logger(__name__)
+
+_PENDING_PAYMENT_NOTE = (
+    "Earnings are pending until the Lightning invoice is paid; payment is not verified yet."
+)
 
 
 class EarningStrategy(BaseModel):
@@ -299,12 +308,19 @@ class EarningStrategyManager:
             logger.info("Fee intelligence service created", 
                        invoice_id=invoice.payment_hash,
                        price=price)
-            
+            logger.warning(
+                _PENDING_PAYMENT_NOTE,
+                strategy="fee_intelligence",
+                invoice_amount_sats=price,
+            )
+
             return {
                 "success": True,
-                "earnings_sats": price,
+                "earnings_sats": 0,
                 "service_data": {
-                    "invoice": invoice.dict(),
+                    "invoice": invoice.model_dump(),
+                    "earnings_status": "pending",
+                    "pending_note": _PENDING_PAYMENT_NOTE,
                     "brief_summary": {
                         "timestamp": brief.timestamp.isoformat(),
                         "current_height": brief.current_height,
@@ -343,12 +359,20 @@ class EarningStrategyManager:
                 congestion_level = "high"
             elif usage_percent > 30:
                 congestion_level = "medium"
-            
+
+            logger.warning(
+                _PENDING_PAYMENT_NOTE,
+                strategy="mempool_monitoring",
+                invoice_amount_sats=price,
+            )
+
             return {
                 "success": True,
-                "earnings_sats": price,
+                "earnings_sats": 0,
                 "service_data": {
-                    "invoice": invoice.dict(),
+                    "invoice": invoice.model_dump(),
+                    "earnings_status": "pending",
+                    "pending_note": _PENDING_PAYMENT_NOTE,
                     "mempool_status": {
                         "congestion_level": congestion_level,
                         "usage_percent": usage_percent,
@@ -392,12 +416,20 @@ class EarningStrategyManager:
                 "economical_fee_rate": fee_estimates.get("24_block", 5),
                 "timing_recommendation": "optimal" if fee_estimates.get("6_block", 10) < 15 else "wait"
             }
-            
+
+            logger.warning(
+                _PENDING_PAYMENT_NOTE,
+                strategy="transaction_optimization",
+                invoice_amount_sats=price,
+            )
+
             return {
                 "success": True,
-                "earnings_sats": price,
+                "earnings_sats": 0,
                 "service_data": {
-                    "invoice": invoice.dict(),
+                    "invoice": invoice.model_dump(),
+                    "earnings_status": "pending",
+                    "pending_note": _PENDING_PAYMENT_NOTE,
                     "optimization": recommendations
                 }
             }
@@ -433,12 +465,20 @@ class EarningStrategyManager:
                     "Use replace-by-fee for urgent transactions"
                 ]
             }
-            
+
+            logger.warning(
+                _PENDING_PAYMENT_NOTE,
+                strategy="market_analysis",
+                invoice_amount_sats=price,
+            )
+
             return {
                 "success": True,
-                "earnings_sats": price,
+                "earnings_sats": 0,
                 "service_data": {
-                    "invoice": invoice.dict(),
+                    "invoice": invoice.model_dump(),
+                    "earnings_status": "pending",
+                    "pending_note": _PENDING_PAYMENT_NOTE,
                     "analysis": analysis
                 }
             }
@@ -462,12 +502,20 @@ class EarningStrategyManager:
                 amount=price,
                 description=f"Lightning Service - {datetime.utcnow().isoformat()}"
             )
-            
+
+            logger.warning(
+                _PENDING_PAYMENT_NOTE,
+                strategy="lightning_services",
+                invoice_amount_sats=price,
+            )
+
             return {
                 "success": True,
-                "earnings_sats": price,
+                "earnings_sats": 0,
                 "service_data": {
-                    "invoice": invoice.dict(),
+                    "invoice": invoice.model_dump(),
+                    "earnings_status": "pending",
+                    "pending_note": _PENDING_PAYMENT_NOTE,
                     "lightning_status": {
                         "wallet_balance": wallet_balance.get("balance", 0),
                         "service_available": True

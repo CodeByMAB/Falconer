@@ -279,7 +279,7 @@ class FeeBriefTask:
 
         try:
             with open(filename, "w") as f:
-                f.write(brief.json(indent=2))
+                f.write(brief.model_dump_json(indent=2))
 
             logger.info("Fee brief saved", filename=filename)
             return filename

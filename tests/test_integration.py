@@ -73,8 +73,8 @@ class TestIntegration:
 
     def test_daily_spend_limit_enforcement(self):
         """Test that daily spend limits are enforced across restarts."""
-        # First transaction
-        request1 = TransactionRequest(destination="bc1qtest1", amount_sats=8000)
+        # First transaction (within per-tx and daily limits)
+        request1 = TransactionRequest(destination="bc1qtest1", amount_sats=5000)
 
         # Should pass
         violations = self.policy_engine.validate_transaction(request1)
@@ -83,33 +83,29 @@ class TestIntegration:
         # Record it
         self.policy_engine.record_transaction(request1, "tx1")
 
-        # Second transaction that would exceed daily limit
+        # Second transaction: exceeds daily total (5000 + 5001 > 10000) and per-tx cap (5001 > 5000)
         request2 = TransactionRequest(
             destination="bc1qtest1",
-            amount_sats=3000,  # 8000 + 3000 = 11000 > 10000 limit
+            amount_sats=5001,
         )
 
-        # Should fail
         violations = self.policy_engine.validate_transaction(request2)
-        assert len(violations) == 1
-        assert violations[0].violation_type == "daily_limit_exceeded"
+        assert len(violations) == 2
+        vtypes = {v.violation_type for v in violations}
+        assert "daily_limit_exceeded" in vtypes
+        assert "amount_limit_exceeded" in vtypes
 
-        # Check that violation was logged
         violations_log = self.persistence.load_policy_violations()
-        assert len(violations_log) == 1
-        assert violations_log[0]["violation_type"] == "daily_limit_exceeded"
+        assert len(violations_log) == 2
 
     def test_address_validation_integration(self):
         """Test address validation integration."""
         # Valid addresses
         valid_addresses = [
-            "bc1qtest1",  # Test address
-            "1A1zP1eP5QGefi2DMPTfTL5SLmv7DivfNa",  # Genesis block
-            "3J98t1WpEZ73CNmQviecrnyiWrnqRhWNLy",  # P2SH
+            "tb1qxy2kgdygjrsqtzq2n0yrf2493p83kkfjhx0wlh",
         ]
 
         for address in valid_addresses:
-            # Should not raise exception
             validate_bitcoin_address(address, network="testnet")
 
         # Invalid addresses
@@ -255,20 +251,11 @@ class TestConfigurationIntegration:
         ):
             Config(max_daily_spend_sats=5000, max_single_tx_sats=10000)
 
-    def test_allowed_destinations_parsing(self):
+    def test_allowed_destinations_parsing(self, monkeypatch):
         """Test allowed destinations parsing from environment."""
-        import os
-
-        # Set environment variable
-        os.environ["ALLOWED_DESTINATIONS"] = "bc1qtest1,bc1qtest2,bc1qtest3"
-
-        try:
-            config = Config()
-            assert len(config.allowed_destinations) == 3
-            assert "bc1qtest1" in config.allowed_destinations
-            assert "bc1qtest2" in config.allowed_destinations
-            assert "bc1qtest3" in config.allowed_destinations
-        finally:
-            # Clean up environment
-            if "ALLOWED_DESTINATIONS" in os.environ:
-                del os.environ["ALLOWED_DESTINATIONS"]
+        monkeypatch.setenv("ALLOWED_DESTINATIONS", "bc1qtest1,bc1qtest2,bc1qtest3")
+        config = Config()
+        assert len(config.allowed_destinations) == 3
+        assert "bc1qtest1" in config.allowed_destinations
+        assert "bc1qtest2" in config.allowed_destinations
+        assert "bc1qtest3" in config.allowed_destinations

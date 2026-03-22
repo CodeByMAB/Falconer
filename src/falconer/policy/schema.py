@@ -3,7 +3,7 @@
 from datetime import datetime
 from typing import List, Optional
 
-from pydantic import BaseModel, Field, validator
+from pydantic import BaseModel, Field, ValidationInfo, field_validator
 
 
 class Policy(BaseModel):
@@ -25,10 +25,12 @@ class Policy(BaseModel):
         default=True, description="Require confirmation for transactions"
     )
 
-    @validator("max_single_tx_sats")
-    def single_tx_less_than_daily(cls, v, values):
+    @field_validator("max_single_tx_sats")
+    @classmethod
+    def single_tx_less_than_daily(cls, v: int, info: ValidationInfo) -> int:
         """Ensure single transaction limit is less than daily limit."""
-        if "max_daily_spend_sats" in values and v > values["max_daily_spend_sats"]:
+        data = info.data or {}
+        if "max_daily_spend_sats" in data and v > data["max_daily_spend_sats"]:
             raise ValueError(
                 "max_single_tx_sats must be less than or equal to max_daily_spend_sats"
             )
@@ -70,8 +72,9 @@ class DailySpend(BaseModel):
     total_spent_sats: int = Field(ge=0, description="Total spent in satoshis")
     transaction_count: int = Field(ge=0, description="Number of transactions")
 
-    @validator("date")
-    def validate_date_format(cls, v):
+    @field_validator("date")
+    @classmethod
+    def validate_date_format(cls, v: str) -> str:
         """Validate date format."""
         try:
             datetime.strptime(v, "%Y-%m-%d")

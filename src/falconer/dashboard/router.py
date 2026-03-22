@@ -3,8 +3,10 @@
 from __future__ import annotations
 
 import asyncio
+import ipaddress
 import re
 import secrets
+from urllib.parse import urlparse
 from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
@@ -97,6 +99,79 @@ def _is_setup_complete() -> bool:
     """Return True if .env exists and SETUP_COMPLETE=true is set."""
     env = _read_env()
     return env.get("SETUP_COMPLETE", "").lower() == "true"
+
+
+def _host_from_url_or_host(value: str) -> Optional[str]:
+    s = (value or "").strip()
+    if not s:
+        return None
+    if "://" in s:
+        return urlparse(s).hostname
+    return s.split(":")[0].split("/")[0].strip()
+
+
+def _is_allowed_setup_test_host(host: Optional[str]) -> bool:
+    """Restrict setup wizard connection tests to local/Tor targets (SSRF mitigation)."""
+    if not host:
+        return False
+    h = host.strip().lower().rstrip(".")
+    if h.endswith(".onion"):
+        return True
+    if h == "localhost":
+        return True
+    try:
+        ip = ipaddress.ip_address(h)
+        return bool(ip.is_private or ip.is_loopback or ip.is_link_local)
+    except ValueError:
+        return False
+
+
+def _validate_setup_test_targets(body: Dict[str, Any], service: str) -> Optional[str]:
+    """Return an error detail if any target host is not allowed, else None."""
+    if service == "bitcoin":
+        h = _host_from_url_or_host(str(body.get("host", "")))
+        if not _is_allowed_setup_test_host(h):
+            return "Host must be a private IP, loopback, link-local, localhost, or Tor (.onion)"
+    elif service == "electrs":
+        h = _host_from_url_or_host(str(body.get("host", "")))
+        if not _is_allowed_setup_test_host(h):
+            return "Host must be a private IP, loopback, link-local, localhost, or Tor (.onion)"
+    elif service == "mempool":
+        h = _host_from_url_or_host(str(body.get("base_url", "")))
+        if not _is_allowed_setup_test_host(h):
+            return "Mempool URL host must be a private IP, loopback, link-local, localhost, or Tor (.onion)"
+    elif service == "lnbits":
+        h = _host_from_url_or_host(str(body.get("host", "")))
+        if not _is_allowed_setup_test_host(h):
+            return "Host must be a private IP, loopback, link-local, localhost, or Tor (.onion)"
+    elif service == "vllm":
+        h = _host_from_url_or_host(str(body.get("base_url", "")))
+        if not _is_allowed_setup_test_host(h):
+            return "vLLM URL host must be a private IP, loopback, link-local, localhost, or Tor (.onion)"
+    elif service == "n8n":
+        if body.get("base_url"):
+            h = _host_from_url_or_host(str(body["base_url"]))
+            if not _is_allowed_setup_test_host(h):
+                return "n8n base URL host must be a private IP, loopback, link-local, localhost, or Tor (.onion)"
+        if body.get("webhook_url"):
+            h = _host_from_url_or_host(str(body["webhook_url"]))
+            if not _is_allowed_setup_test_host(h):
+                return "n8n webhook URL host must be a private IP, loopback, link-local, localhost, or Tor (.onion)"
+    return None
+
+
+def _is_https_request(request: Request) -> bool:
+    if request.url.scheme == "https":
+        return True
+    return request.headers.get("x-forwarded-proto", "").lower() == "https"
+
+
+def _secrets_compare_str(a: str, b: str) -> bool:
+    """Constant-time comparison; returns False on length mismatch without raising."""
+    try:
+        return secrets.compare_digest(a, b)
+    except ValueError:
+        return False
 
 
 # ── Connection testers ────────────────────────────────────────────────────────
@@ -431,8 +506,17 @@ def create_dashboard_router(config: Any) -> APIRouter:
     @router.post("/setup/test")
     async def test_connection(request: Request) -> JSONResponse:
         """Live connection test called by the setup wizard JS."""
+        if _is_setup_complete() and not _is_authenticated(request):
+            return JSONResponse(
+                status_code=401,
+                content={"ok": False, "detail": "Unauthorized"},
+            )
         body: Dict[str, Any] = await request.json()
         service: str = body.get("service", "")
+
+        host_err = _validate_setup_test_targets(body, service)
+        if host_err:
+            return JSONResponse(status_code=400, content={"ok": False, "detail": host_err})
 
         ok: bool
         detail: str
@@ -493,7 +577,23 @@ def create_dashboard_router(config: Any) -> APIRouter:
     @router.post("/setup/save")
     async def save_setup(request: Request) -> JSONResponse:
         """Write validated config values to the project .env file."""
+        if _is_setup_complete() and not _is_authenticated(request):
+            return JSONResponse(
+                status_code=401,
+                content={"ok": False, "detail": "Unauthorized"},
+            )
         body: Dict[str, Any] = await request.json()
+
+        pw = body.get("dashboard_password")
+        if pw is not None and str(pw).strip():
+            if len(str(pw).strip()) < 12:
+                return JSONResponse(
+                    status_code=400,
+                    content={
+                        "ok": False,
+                        "detail": "Dashboard password must be at least 12 characters.",
+                    },
+                )
 
         updates: Dict[str, str] = {}
 
@@ -603,11 +703,20 @@ def create_dashboard_router(config: Any) -> APIRouter:
         real_user = env.get("DASHBOARD_USER", dash_user)
         real_pass = env.get("DASHBOARD_PASSWORD", dash_pass)
 
-        if username == real_user and password == real_pass:
+        if _secrets_compare_str(username, real_user) and _secrets_compare_str(
+            password, real_pass
+        ):
             token = secrets.token_urlsafe(32)
             _sessions[token] = datetime.utcnow() + SESSION_TTL
             resp: Any = RedirectResponse(url="/dashboard/", status_code=303)
-            resp.set_cookie(SESSION_COOKIE, token, httponly=True, samesite="lax", max_age=28800)
+            resp.set_cookie(
+                SESSION_COOKIE,
+                token,
+                httponly=True,
+                samesite="lax",
+                max_age=28800,
+                secure=_is_https_request(request),
+            )
             return resp
         return templates.TemplateResponse(
             "login.html",
@@ -746,14 +855,21 @@ def create_dashboard_router(config: Any) -> APIRouter:
         if not _is_authenticated(request):
             return JSONResponse(status_code=401, content={"error": "Unauthorized"})
         try:
+            from ..adapters.lnbits import LNbitsAdapter
             from ..funding.manager import FundingProposalManager
-            mgr = FundingProposalManager(config)  # type: ignore[arg-type]
-            raw = mgr.list_proposals()
-            proposals = [
-                p.model_dump() if hasattr(p, "model_dump") else (p.dict() if hasattr(p, "dict") else p)
-                for p in raw
-            ]
-            return JSONResponse(content={"proposals": proposals, "count": len(proposals)})
+            from ..persistence import PersistenceManager
+
+            persistence = PersistenceManager()
+            lnbits_adapter = LNbitsAdapter(config)
+            try:
+                mgr = FundingProposalManager(config, persistence, lnbits_adapter)
+                raw = mgr.list_proposals()
+                proposals = [p.model_dump() for p in raw]
+                return JSONResponse(
+                    content={"proposals": proposals, "count": len(proposals)}
+                )
+            finally:
+                lnbits_adapter.close()
         except Exception as exc:
             return JSONResponse(content={"proposals": [], "count": 0, "error": str(exc)})
 
@@ -904,10 +1020,19 @@ def create_dashboard_router(config: Any) -> APIRouter:
         if not _is_authenticated(request):
             return JSONResponse(status_code=401, content={"error": "Unauthorized"})
         try:
+            from ..adapters.bitcoind import BitcoinAdapter
+            from ..adapters.electrs import ElectrsAdapter
             from ..tasks.fee_brief import FeeBriefTask
-            task = FeeBriefTask(config)  # type: ignore[arg-type]
-            brief = task.run()
-            return JSONResponse(content=brief if isinstance(brief, dict) else {"brief": str(brief)})
+
+            bitcoin_adapter = BitcoinAdapter(config)
+            electrs_adapter = ElectrsAdapter(config)
+            try:
+                task = FeeBriefTask(config, bitcoin_adapter, electrs_adapter)
+                brief = task.generate_fee_brief()
+                return JSONResponse(content=brief.model_dump(mode="json"))
+            finally:
+                bitcoin_adapter.close()
+                electrs_adapter.close()
         except Exception as exc:
             return JSONResponse(content={"error": str(exc)})
 

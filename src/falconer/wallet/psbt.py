@@ -153,7 +153,7 @@ class PSBTManager:
             )
 
         except Exception as e:
-            logger.error("Failed to create PSBT", error=str(e), request=request.dict())
+            logger.error("Failed to create PSBT", error=str(e), request=request.model_dump())
             raise PSBTError(f"Failed to create PSBT: {e}")
 
     def finalize_psbt(self, psbt_hex: str) -> str:

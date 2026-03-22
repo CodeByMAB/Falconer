@@ -246,7 +246,7 @@ class PersistenceManager:
             Loaded JSON data or default value
         """
         if not file_path.exists():
-            return default or {}
+            return default if default is not None else {}
 
         try:
             with open(file_path, "r") as f:
@@ -257,7 +257,7 @@ class PersistenceManager:
                 file=str(file_path),
                 error=str(e),
             )
-            return default or {}
+            return default if default is not None else {}
 
     def _save_json(self, file_path: Path, data: any) -> None:
         """Save JSON data to file.

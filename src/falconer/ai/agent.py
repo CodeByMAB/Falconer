@@ -200,7 +200,7 @@ class AIAgent:
         """Prepare context data for AI decision making."""
         return {
             "current_time": datetime.utcnow().isoformat(),
-            "agent_state": self.state.dict(),
+            "agent_state": self.state.model_dump(),
             "market_data": market_data,
             "available_strategies": self.strategy_manager.get_available_strategies(),
             "recent_decisions": self.decision_history[-5:] if self.decision_history else [],
@@ -380,7 +380,7 @@ If you decide to wait, set action to "wait" and explain why.
             "is_active": self.state.is_active,
             "model": self.vllm_model,
             "base_url": self.vllm_base_url,
-            "state": self.state.dict(),
+            "state": self.state.model_dump(),
             "recent_decisions_count": len(self.decision_history),
             "last_decision_time": self.state.last_decision_time.isoformat() if self.state.last_decision_time else None
         }

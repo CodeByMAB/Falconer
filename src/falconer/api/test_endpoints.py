@@ -1,23 +1,57 @@
 """FastAPI test endpoints for OpenClaw integration PoC."""
 
+from contextlib import asynccontextmanager
 from datetime import datetime
-from typing import Optional
+from typing import Optional, Tuple
 
-from fastapi import FastAPI, Request, HTTPException, Header, Depends
+import secrets
+import uvicorn
+from fastapi import Depends, FastAPI, Header, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, RedirectResponse
 from fastapi.security import APIKeyHeader
-import uvicorn
 
 from .. import __version__
-from ..config import Config
-from ..logging import get_logger
 from ..adapters.bitcoind import BitcoinAdapter
 from ..adapters.electrs import ElectrsAdapter
-from ..adapters.mempool import MempoolAdapter
+from ..config import Config, warn_if_default_dashboard_password
 from ..dashboard.router import create_dashboard_router
+from ..logging import get_logger
 
 logger = get_logger(__name__)
+
+
+def _secrets_compare_str(a: str, b: str) -> bool:
+    try:
+        return secrets.compare_digest(a, b)
+    except ValueError:
+        return False
+
+
+def _ensure_api_adapters(app: FastAPI) -> None:
+    """Create shared adapters once on app.state (lazy for TestClient without lifespan)."""
+    if getattr(app.state, "bitcoin_adapter", None) is not None:
+        return
+    cfg: Config = app.state.config
+    warn_if_default_dashboard_password(cfg)
+    app.state.bitcoin_adapter = BitcoinAdapter(cfg)
+    app.state.electrs_adapter = ElectrsAdapter(cfg)
+
+
+@asynccontextmanager
+async def _api_lifespan(app: FastAPI):
+    _ensure_api_adapters(app)
+    try:
+        yield
+    finally:
+        if getattr(app.state, "bitcoin_adapter", None) is not None:
+            app.state.bitcoin_adapter.close()
+            app.state.electrs_adapter.close()
+
+
+def _adapters_for_request(request: Request) -> Tuple[BitcoinAdapter, ElectrsAdapter]:
+    _ensure_api_adapters(request.app)
+    return request.app.state.bitcoin_adapter, request.app.state.electrs_adapter
 
 
 def create_api_app(config: Config) -> FastAPI:
@@ -26,6 +60,7 @@ def create_api_app(config: Config) -> FastAPI:
         title="Falconer Test API",
         description="Test API for OpenClaw integration PoC",
         version=__version__,
+        lifespan=_api_lifespan,
     )
     app.state.config = config
 
@@ -38,10 +73,16 @@ def create_api_app(config: Config) -> FastAPI:
     async def root_redirect() -> RedirectResponse:
         return RedirectResponse(url="/dashboard/", status_code=302)
 
-    # Security and middleware setup
+    # Restrict CORS to known local / dashboard origins (do not use * with credentials)
+    cors_origins = [
+        "http://127.0.0.1:8000",
+        "http://localhost:8000",
+        "http://127.0.0.1:8080",
+        "http://localhost:8080",
+    ]
     app.add_middleware(
         CORSMiddleware,
-        allow_origins=["*"],
+        allow_origins=cors_origins,
         allow_credentials=True,
         allow_methods=["*"],
         allow_headers=["*"],
@@ -50,19 +91,19 @@ def create_api_app(config: Config) -> FastAPI:
     # API key security for OpenClaw integration
     api_key_header = APIKeyHeader(name="X-API-Key", auto_error=False)
 
-    async def get_api_key(api_key: str = Depends(api_key_header)):
+    async def get_api_key(api_key: Optional[str] = Depends(api_key_header)):
         """Validate API key for OpenClaw integration."""
         # If OpenClaw integration is disabled, allow access without API key for backward compatibility
         if not config.openclaw_enabled:
             return None
-        
+
         # If API key is configured, validate it
         if config.openclaw_api_key:
             if not api_key:
                 raise HTTPException(status_code=401, detail="API key required")
-            if api_key != config.openclaw_api_key:
+            if not _secrets_compare_str(api_key, config.openclaw_api_key):
                 raise HTTPException(status_code=401, detail="Invalid API key")
-        
+
         return api_key
 
     @app.middleware("http")
@@ -101,7 +142,9 @@ def create_api_app(config: Config) -> FastAPI:
             )
         else:
             response.headers["Content-Security-Policy"] = "default-src 'self'"
-            response.headers["Strict-Transport-Security"] = "max-age=31536000; includeSubDomains"
+            response.headers["Strict-Transport-Security"] = (
+                "max-age=31536000; includeSubDomains"
+            )
         return response
 
     @app.exception_handler(HTTPException)
@@ -109,8 +152,12 @@ def create_api_app(config: Config) -> FastAPI:
         """Handle HTTP exceptions with consistent error format."""
         # Honour redirect responses raised by dependencies
         if 300 <= exc.status_code < 400 and exc.headers and "Location" in exc.headers:
-            return RedirectResponse(url=exc.headers["Location"], status_code=exc.status_code)
-        logger.error("HTTP Exception", error=str(exc.detail), status_code=exc.status_code)
+            return RedirectResponse(
+                url=exc.headers["Location"], status_code=exc.status_code
+            )
+        logger.error(
+            "HTTP Exception", error=str(exc.detail), status_code=exc.status_code
+        )
         return JSONResponse(
             status_code=exc.status_code,
             content={
@@ -167,13 +214,14 @@ def create_api_app(config: Config) -> FastAPI:
         return JSONResponse(status_code=200, content={"echo": body})
 
     @app.get("/api/bitcoin/blockchain-info")
-    async def get_blockchain_info(api_key: str = Depends(get_api_key)):
+    async def get_blockchain_info(
+        request: Request, api_key: Optional[str] = Depends(get_api_key)
+    ):
         """Get current blockchain information from Bitcoin node."""
         try:
-            bitcoin_adapter = BitcoinAdapter(config)
+            bitcoin_adapter, _ = _adapters_for_request(request)
             info = bitcoin_adapter.get_blockchain_info()
-            bitcoin_adapter.close()
-            
+
             return JSONResponse(
                 status_code=200,
                 content={
@@ -191,13 +239,14 @@ def create_api_app(config: Config) -> FastAPI:
             raise HTTPException(status_code=500, detail="Failed to get blockchain info")
 
     @app.get("/api/bitcoin/mempool-info")
-    async def get_mempool_info(api_key: str = Depends(get_api_key)):
+    async def get_mempool_info(
+        request: Request, api_key: Optional[str] = Depends(get_api_key)
+    ):
         """Get current mempool information."""
         try:
-            bitcoin_adapter = BitcoinAdapter(config)
+            bitcoin_adapter, _ = _adapters_for_request(request)
             mempool_info = bitcoin_adapter.get_mempool_info()
-            bitcoin_adapter.close()
-            
+
             return JSONResponse(
                 status_code=200,
                 content={
@@ -215,21 +264,30 @@ def create_api_app(config: Config) -> FastAPI:
             raise HTTPException(status_code=500, detail="Failed to get mempool info")
 
     @app.get("/api/bitcoin/fee-estimates")
-    async def get_fee_estimates(api_key: str = Depends(get_api_key)):
+    async def get_fee_estimates(
+        request: Request, api_key: Optional[str] = Depends(get_api_key)
+    ):
         """Get current fee estimates for different confirmation targets."""
         try:
-            bitcoin_adapter = BitcoinAdapter(config)
-            estimates = bitcoin_adapter.estimate_fee_rates()
-            bitcoin_adapter.close()
-            
+            bitcoin_adapter, _ = _adapters_for_request(request)
+            by_target: dict = {}
+            for target in (1, 3, 6, 12, 24):
+                try:
+                    est = bitcoin_adapter.estimate_smart_fee(target)
+                    if est and "feerate" in est:
+                        by_target[target] = est["feerate"] * 100000
+                except Exception:
+                    continue
+
             return JSONResponse(
                 status_code=200,
                 content={
-                    "fast": estimates.get("fast", 10),
-                    "medium": estimates.get("medium", 5),
-                    "slow": estimates.get("slow", 2),
-                    "economical": estimates.get("economical", 1),
-                    "minimum": estimates.get("minimum", 1),
+                    "fast": by_target.get(1, 10),
+                    "medium": by_target.get(6, 5),
+                    "slow": by_target.get(12, 2),
+                    "economical": by_target.get(24, 1),
+                    "minimum": min(by_target.values()) if by_target else 1,
+                    "estimates": {f"{k}_blocks": v for k, v in by_target.items()},
                     "timestamp": datetime.utcnow().isoformat(),
                 },
             )
@@ -238,24 +296,22 @@ def create_api_app(config: Config) -> FastAPI:
             raise HTTPException(status_code=500, detail="Failed to get fee estimates")
 
     @app.get("/api/bitcoin/network-stats")
-    async def get_network_stats(api_key: str = Depends(get_api_key)):
+    async def get_network_stats(
+        request: Request, api_key: Optional[str] = Depends(get_api_key)
+    ):
         """Get Bitcoin network statistics and health indicators."""
         try:
-            bitcoin_adapter = BitcoinAdapter(config)
-            electrs_adapter = ElectrsAdapter(config)
-            
+            bitcoin_adapter, electrs_adapter = _adapters_for_request(request)
+
             # Get blockchain info
             blockchain_info = bitcoin_adapter.get_blockchain_info()
-            
+
             # Get mempool info
             mempool_info = bitcoin_adapter.get_mempool_info()
-            
+
             # Get tip height from Electrs
             tip_height = electrs_adapter.get_tip_height()
-            
-            bitcoin_adapter.close()
-            electrs_adapter.close()
-            
+
             return JSONResponse(
                 status_code=200,
                 content={
@@ -265,8 +321,11 @@ def create_api_app(config: Config) -> FastAPI:
                     "difficulty": blockchain_info.get("difficulty", 0),
                     "mempool_size": mempool_info.get("size", 0),
                     "mempool_bytes": mempool_info.get("bytes", 0),
-                    "hash_rate": blockchain_info.get("difficulty", 0) * 2**32 / 600,  # Approximate
-                    "is_synced": blockchain_info.get("blocks", 0) == blockchain_info.get("headers", 0),
+                    "hash_rate": blockchain_info.get("difficulty", 0)
+                    * 2**32
+                    / 600,  # Approximate
+                    "is_synced": blockchain_info.get("blocks", 0)
+                    == blockchain_info.get("headers", 0),
                     "timestamp": datetime.utcnow().isoformat(),
                 },
             )
@@ -275,12 +334,12 @@ def create_api_app(config: Config) -> FastAPI:
             raise HTTPException(status_code=500, detail="Failed to get network stats")
 
     @app.get("/api/bitcoin/market-analysis")
-    async def get_market_analysis(api_key: str = Depends(get_api_key)):
+    async def get_market_analysis(api_key: Optional[str] = Depends(get_api_key)):
         """Get AI-powered Bitcoin market analysis (simplified for OpenClaw)."""
         try:
             # This would integrate with the AI market analyzer in a full implementation
             # For PoC, return mock data
-            
+
             return JSONResponse(
                 status_code=200,
                 content={
@@ -298,16 +357,16 @@ def create_api_app(config: Config) -> FastAPI:
             raise HTTPException(status_code=500, detail="Failed to get market analysis")
 
     @app.get("/api/bitcoin/address-info")
-    async def get_address_info(address: str, api_key: str = Depends(get_api_key)):
+    async def get_address_info(
+        address: str, request: Request, api_key: Optional[str] = Depends(get_api_key)
+    ):
         """Get information about a Bitcoin address."""
         try:
-            electrs_adapter = ElectrsAdapter(config)
-            
+            _, electrs_adapter = _adapters_for_request(request)
+
             # Get address info from Electrs
             address_info = electrs_adapter.get_address_info(address)
-            
-            electrs_adapter.close()
-            
+
             return JSONResponse(
                 status_code=200,
                 content={
@@ -320,19 +379,21 @@ def create_api_app(config: Config) -> FastAPI:
             )
         except Exception as e:
             logger.error("Failed to get address info", error=str(e), address=address)
-            raise HTTPException(status_code=400, detail=f"Invalid address or error: {str(e)}")
+            raise HTTPException(
+                status_code=400, detail=f"Invalid address or error: {str(e)}"
+            )
 
     @app.get("/api/bitcoin/transaction")
-    async def get_transaction(tx_id: str, api_key: str = Depends(get_api_key)):
+    async def get_transaction(
+        tx_id: str, request: Request, api_key: Optional[str] = Depends(get_api_key)
+    ):
         """Get information about a Bitcoin transaction."""
         try:
-            bitcoin_adapter = BitcoinAdapter(config)
-            
+            bitcoin_adapter, _ = _adapters_for_request(request)
+
             # Get transaction info
             tx_info = bitcoin_adapter.get_transaction(tx_id)
-            
-            bitcoin_adapter.close()
-            
+
             return JSONResponse(
                 status_code=200,
                 content={
@@ -347,7 +408,9 @@ def create_api_app(config: Config) -> FastAPI:
             )
         except Exception as e:
             logger.error("Failed to get transaction info", error=str(e), tx_id=tx_id)
-            raise HTTPException(status_code=404, detail=f"Transaction not found: {str(e)}")
+            raise HTTPException(
+                status_code=404, detail=f"Transaction not found: {str(e)}"
+            )
 
     return app
 

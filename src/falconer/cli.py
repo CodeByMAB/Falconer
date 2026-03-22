@@ -13,7 +13,7 @@ from .adapters.lnbits import LNbitsAdapter
 from .ai.agent import AIAgent
 from .ai.market_analyzer import MarketAnalyzer
 from .ai.earning_strategies import EarningStrategyManager
-from .config import Config
+from .config import Config, warn_if_default_dashboard_password
 from .persistence import PersistenceManager
 from .exceptions import (
     AddressValidationError,
@@ -71,6 +71,7 @@ def main(ctx, config: Optional[str], log_level: str):
 
     ctx.ensure_object(dict)
     ctx.obj["config"] = Config()
+    warn_if_default_dashboard_password(ctx.obj["config"])
 
 
 @main.command()
@@ -96,7 +97,7 @@ def fee_brief(ctx, output: Optional[str]):
             fee_task.save_fee_brief(brief, output)
             click.echo(f"Fee brief saved to {output}")
         else:
-            click.echo(json.dumps(brief.dict(), indent=2, default=str))
+            click.echo(brief.model_dump_json(indent=2))
 
         # Cleanup
         bitcoin_adapter.close()

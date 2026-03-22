@@ -98,7 +98,8 @@ class PolicyEngine:
             violations.append(violation)
 
             # Log violation (warnings are also logged)
-            self.persistence.save_policy_violation(violation.dict())
+            if self.persistence:
+                self.persistence.save_policy_violation(violation.model_dump())
 
         return violations
 
