@@ -237,6 +237,11 @@ async def _test_bitcoin(
         err = str(exc)
         if "socksio" in err or "SOCKS" in err.upper():
             return False, "SOCKS5 support missing — run: pip install socksio"
+        if "WRONG_VERSION_NUMBER" in err or "wrong version number" in err.lower():
+            return False, (
+                "TLS error (wrong version number): RPC is probably HTTP-only. "
+                "Set scheme to http:// — Bitcoin Core does not use HTTPS on the raw RPC port."
+            )
         return False, err
 
 

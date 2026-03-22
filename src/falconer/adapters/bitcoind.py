@@ -93,6 +93,14 @@ class BitcoinAdapter:
 
         except httpx.HTTPError as e:
             logger.error("Bitcoin Knots RPC HTTP error", error=str(e))
+            err_str = str(e)
+            if "WRONG_VERSION_NUMBER" in err_str or "wrong version number" in err_str.lower():
+                raise BitcoinAdapterError(
+                    "TLS handshake failed (wrong version number): the RPC URL likely uses "
+                    "https:// but Bitcoin Core speaks plain HTTP on this port. "
+                    "Set BITCOIND_SCHEME=http or choose http in the setup wizard, unless "
+                    "you use a reverse proxy that terminates HTTPS for RPC."
+                ) from e
             raise BitcoinAdapterError(f"HTTP error connecting to Bitcoin Core: {e}")
         except Exception as e:
             logger.error("Bitcoin Knots RPC call failed", method=method, error=str(e))
