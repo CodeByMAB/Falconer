@@ -110,6 +110,16 @@ def _host_from_url_or_host(value: str) -> Optional[str]:
     return s.split(":")[0].split("/")[0].strip()
 
 
+# Hostnames ending with these suffixes are treated as local/LAN-only (SSRF allowlist).
+# *.local is mDNS (e.g. Start9); .lan / .internal are common homelab DNS conventions.
+_SETUP_TEST_TRUSTED_INTERNAL_SUFFIXES: Tuple[str, ...] = (".local", ".lan", ".internal")
+
+_SETUP_TEST_HOST_REQUIREMENTS = (
+    "a private IP, loopback, link-local, localhost, Tor (.onion), "
+    "or a trusted local/LAN hostname (*.local, *.lan, *.internal)"
+)
+
+
 def _is_allowed_setup_test_host(host: Optional[str]) -> bool:
     """Restrict setup wizard connection tests to local/Tor targets (SSRF mitigation)."""
     if not host:
@@ -118,6 +128,8 @@ def _is_allowed_setup_test_host(host: Optional[str]) -> bool:
     if h.endswith(".onion"):
         return True
     if h == "localhost":
+        return True
+    if any(h.endswith(suffix) for suffix in _SETUP_TEST_TRUSTED_INTERNAL_SUFFIXES):
         return True
     try:
         ip = ipaddress.ip_address(h)
@@ -131,32 +143,32 @@ def _validate_setup_test_targets(body: Dict[str, Any], service: str) -> Optional
     if service == "bitcoin":
         h = _host_from_url_or_host(str(body.get("host", "")))
         if not _is_allowed_setup_test_host(h):
-            return "Host must be a private IP, loopback, link-local, localhost, or Tor (.onion)"
+            return f"Host must be {_SETUP_TEST_HOST_REQUIREMENTS}"
     elif service == "electrs":
         h = _host_from_url_or_host(str(body.get("host", "")))
         if not _is_allowed_setup_test_host(h):
-            return "Host must be a private IP, loopback, link-local, localhost, or Tor (.onion)"
+            return f"Host must be {_SETUP_TEST_HOST_REQUIREMENTS}"
     elif service == "mempool":
         h = _host_from_url_or_host(str(body.get("base_url", "")))
         if not _is_allowed_setup_test_host(h):
-            return "Mempool URL host must be a private IP, loopback, link-local, localhost, or Tor (.onion)"
+            return f"Mempool URL host must be {_SETUP_TEST_HOST_REQUIREMENTS}"
     elif service == "lnbits":
         h = _host_from_url_or_host(str(body.get("host", "")))
         if not _is_allowed_setup_test_host(h):
-            return "Host must be a private IP, loopback, link-local, localhost, or Tor (.onion)"
+            return f"Host must be {_SETUP_TEST_HOST_REQUIREMENTS}"
     elif service == "vllm":
         h = _host_from_url_or_host(str(body.get("base_url", "")))
         if not _is_allowed_setup_test_host(h):
-            return "vLLM URL host must be a private IP, loopback, link-local, localhost, or Tor (.onion)"
+            return f"vLLM URL host must be {_SETUP_TEST_HOST_REQUIREMENTS}"
     elif service == "n8n":
         if body.get("base_url"):
             h = _host_from_url_or_host(str(body["base_url"]))
             if not _is_allowed_setup_test_host(h):
-                return "n8n base URL host must be a private IP, loopback, link-local, localhost, or Tor (.onion)"
+                return f"n8n base URL host must be {_SETUP_TEST_HOST_REQUIREMENTS}"
         if body.get("webhook_url"):
             h = _host_from_url_or_host(str(body["webhook_url"]))
             if not _is_allowed_setup_test_host(h):
-                return "n8n webhook URL host must be a private IP, loopback, link-local, localhost, or Tor (.onion)"
+                return f"n8n webhook URL host must be {_SETUP_TEST_HOST_REQUIREMENTS}"
     return None
 
 
