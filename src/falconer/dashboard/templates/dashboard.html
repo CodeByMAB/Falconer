@@ -1,12 +1,14 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
+  {% from "partials/falconer_logo.html" import falconer_logo %}
   <meta charset="UTF-8"/>
   <meta name="viewport" content="width=device-width,initial-scale=1.0"/>
   <title>FALCONER — Dashboard</title>
   <link rel="preconnect" href="https://fonts.googleapis.com"/>
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
   <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;600;700;900&family=Rajdhani:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet"/>
+  <link rel="icon" href="/dashboard/favicon.svg" type="image/svg+xml"/>
   <style>
     *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
 
@@ -397,15 +399,8 @@
 
   <!-- ════════════════════════════════════ SIDEBAR ═══════════════════ -->
   <nav id="sidebar">
-    <!-- Falcon logo -->
-    <svg class="sb-logo" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 240 280" fill="currentColor">
-      <path d="M120 18 C115 26 108 40 104 58 C100 76 99 96 100 116 C101 132 103 144 106 154 C109 162 113 167 120 169 C127 167 131 162 134 154 C137 144 139 132 140 116 C141 96 140 76 136 58 C132 40 125 26 120 18 Z"/>
-      <path d="M105 78 C91 70 72 59 52 46 C34 34 18 25 6 19 C18 31 35 45 54 60 C69 73 87 82 102 89 Z"/>
-      <path d="M135 78 C149 70 168 59 188 46 C206 34 222 25 234 19 C222 31 205 45 186 60 C171 73 153 82 138 89 Z"/>
-      <ellipse cx="120" cy="13" rx="12" ry="14"/>
-      <path d="M115 23 Q120 31 125 23 Q125 28 120 33 Q115 28 115 23 Z"/>
-      <path d="M108 163 C105 175 104 187 106 198 C108 206 113 212 120 214 C127 212 132 206 134 198 C136 187 135 175 132 163 Z"/>
-    </svg>
+    <!-- Falcon logo (same mark as login) -->
+    {{ falconer_logo("sb-logo") }}
 
     <div class="sb-divider"></div>
 

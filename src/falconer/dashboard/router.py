@@ -13,7 +13,7 @@ from typing import Any, Dict, List, Optional, Tuple
 
 import httpx
 from fastapi import APIRouter, Form, Request
-from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
+from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
 
 from ..logging import get_logger
@@ -21,6 +21,7 @@ from ..logging import get_logger
 logger = get_logger(__name__)
 
 TEMPLATES_DIR = Path(__file__).parent / "templates"
+FAVICON_PATH = Path(__file__).parent / "static" / "favicon.svg"
 templates = Jinja2Templates(directory=str(TEMPLATES_DIR))
 
 # Project root = 4 parents up from this file (dashboard/ → falconer/ → src/ → Falconer/)
@@ -508,6 +509,23 @@ def create_dashboard_router(config: Any) -> APIRouter:
 
     dash_user: str = getattr(config, "dashboard_user", DEFAULT_USER)
     dash_pass: str = getattr(config, "dashboard_password", DEFAULT_PASS)
+
+    @router.get("/favicon.svg")
+    async def dashboard_favicon_svg() -> Any:
+        return FileResponse(
+            FAVICON_PATH,
+            media_type="image/svg+xml",
+            headers={"Cache-Control": "public, max-age=86400"},
+        )
+
+    @router.get("/favicon.ico")
+    async def dashboard_favicon_ico() -> Any:
+        """Same SVG asset; many clients probe ``/favicon.ico`` by convention."""
+        return FileResponse(
+            FAVICON_PATH,
+            media_type="image/svg+xml",
+            headers={"Cache-Control": "public, max-age=86400"},
+        )
 
     # ── Setup wizard ──────────────────────────────────────────────────────────
 

@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="assets/falconer-banner.png" alt="Falconer — Bitcoin-native AI agent, star field banner" width="100%"/>
+</p>
+
 # Falconer 🦅
 
 **A Bitcoin-native AI agent that autonomously hunts for insights and earns sats while maintaining human custody and security.**
